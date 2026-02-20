@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 420" fill="none">
+  <rect width="1280" height="420" fill="#241823"/>
+  <rect x="950" y="70" width="170" height="260" rx="14" fill="#FFF4EA" stroke="#E18A4A" stroke-width="6"/>
+  <rect x="900" y="120" width="170" height="260" rx="14" fill="#FFF4EA" stroke="#D46D59" stroke-width="6"/>
+  <rect x="850" y="170" width="170" height="210" rx="14" fill="#FFF4EA" stroke="#B84B6A" stroke-width="6"/>
+  <text x="120" y="175" fill="#FFE6D2" font-size="48" font-family="Segoe UI, Arial">Corporate Gifting Jars</text>
+  <text x="122" y="230" fill="#FFD5B5" font-size="26" font-family="Segoe UI, Arial">Campaign placeholder - replace with your banner</text>
+</svg>

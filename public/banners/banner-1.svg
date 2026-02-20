@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 420" fill="none">
+  <rect width="1280" height="420" fill="#2A1A12"/>
+  <circle cx="1080" cy="120" r="170" fill="#CB5A24"/>
+  <circle cx="980" cy="300" r="110" fill="#E18A3C"/>
+  <rect x="120" y="100" width="180" height="220" rx="24" fill="#FFF4EA" stroke="#F0B184" stroke-width="6"/>
+  <rect x="184" y="82" width="52" height="28" rx="10" fill="#E78A4F"/>
+  <text x="370" y="180" fill="#FFE6D2" font-size="48" font-family="Segoe UI, Arial">Glass Jar Collection</text>
+  <text x="372" y="235" fill="#FFD5B5" font-size="26" font-family="Segoe UI, Arial">Campaign placeholder - replace with your banner</text>
+</svg>

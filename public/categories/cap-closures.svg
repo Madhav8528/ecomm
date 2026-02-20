@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220" fill="none">
+  <rect width="320" height="220" rx="20" fill="#FFF7F0"/>
+  <circle cx="110" cy="110" r="48" fill="#ffffff" stroke="#E18A4A" stroke-width="5"/>
+  <circle cx="210" cy="110" r="48" fill="#ffffff" stroke="#E18A4A" stroke-width="5"/>
+  <text x="20" y="204" fill="#7A4424" font-size="26" font-family="Segoe UI, Arial">Cap Closures</text>
+</svg>

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220" fill="none">
+  <rect width="320" height="220" rx="20" fill="#FFF7F0"/>
+  <rect x="72" y="74" width="64" height="94" rx="10" fill="#ffffff" stroke="#E18A4A" stroke-width="5"/>
+  <rect x="128" y="52" width="64" height="116" rx="10" fill="#ffffff" stroke="#E18A4A" stroke-width="5"/>
+  <rect x="184" y="86" width="64" height="82" rx="10" fill="#ffffff" stroke="#E18A4A" stroke-width="5"/>
+  <text x="20" y="204" fill="#7A4424" font-size="22" font-family="Segoe UI, Arial">Corporate Gifting</text>
+</svg>
