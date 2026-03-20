@@ -11,24 +11,151 @@ import {
 
 const qualityItems = [
   {
-    code: "QC",
-    title: "Strict Quality Control",
-    description: "Food-safe packaging with multi-point inspection.",
+    title: "4+ Decades of Trust",
+    description: "Since 1996",
+    icon: (
+      <svg viewBox="0 0 24 24" role="presentation" focusable="false">
+        <path
+          d="M5 9l7-4 7 4v6c0 3.8-3 6.4-7 7-4-0.6-7-3.2-7-7V9z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M9 12l2 2 4-4"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        />
+      </svg>
+    ),
   },
   {
-    code: "B2B",
-    title: "Bulk Production Ready",
-    description: "Designed for wholesale and manufacturing scale.",
+    title: "Quality Assured Glass",
+    description: "Food-Safe & Export Ready",
+    icon: (
+      <svg viewBox="0 0 24 24" role="presentation" focusable="false">
+        <path
+          d="M8 3h8l-1.2 4.2c-0.2 0.7-0.4 1.4-0.4 2.2v6.2a4 4 0 1 1-4.8 0V9.4c0-0.8-0.2-1.5-0.4-2.2L8 3z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M9 13h6"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        />
+      </svg>
+    ),
   },
   {
-    code: "OEM",
-    title: "Customization Support",
-    description: "Private-label and branding friendly solutions.",
+    title: "Bulk Supply Strength",
+    description: "Wholesale & OEM",
+    icon: (
+      <svg viewBox="0 0 24 24" role="presentation" focusable="false">
+        <path
+          d="M4 8h8l-2 4h-6l2-4z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M12 8h8l-2 4h-8l2-4z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M6 12v7h6v-7"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M14 12v7h6v-7"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinejoin="round"
+        />
+      </svg>
+    ),
   },
   {
-    code: "24H",
-    title: "Fast Business Support",
-    description: "Quick response team for RFQ and sample requests.",
+    title: "Quick Turnaround",
+    description: "Sampling to Dispatch",
+    icon: (
+      <svg viewBox="0 0 24 24" role="presentation" focusable="false">
+        <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" strokeWidth="1.6" />
+        <path
+          d="M12 7v5l3 2"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        />
+      </svg>
+    ),
+  },
+  {
+    title: "Customization Ready",
+    description: "Branding & Decoration",
+    icon: (
+      <svg viewBox="0 0 24 24" role="presentation" focusable="false">
+        <path
+          d="M4 18l4.5-1 9.5-9.5-3.5-3.5L5 13.5 4 18z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M13.5 5.5l3.5 3.5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        />
+      </svg>
+    ),
+  },
+  {
+    title: "Complete Glass Solutions",
+    description: "From One Source",
+    icon: (
+      <svg viewBox="0 0 24 24" role="presentation" focusable="false">
+        <path
+          d="M3.5 8l8.5-4 8.5 4-8.5 4-8.5-4z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M3.5 12l8.5 4 8.5-4"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M3.5 16l8.5 4 8.5-4"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinejoin="round"
+        />
+      </svg>
+    ),
   },
 ];
 
@@ -84,13 +211,13 @@ export default async function Home() {
 
       <section className="section">
         <div className="container">
-          <div className="qualities-grid">
+          <div className="quality-line">
             {qualityItems.map((item) => (
-              <article key={item.title} className="quality-card">
-                <span className="quality-icon">{item.code}</span>
-                <h3>{item.title}</h3>
-                <p>{item.description}</p>
-              </article>
+              <div key={item.title} className="quality-item">
+                <span className="quality-icon">{item.icon}</span>
+                <span className="quality-title">{item.title}</span>
+                <span className="quality-sub">{item.description}</span>
+              </div>
             ))}
           </div>
         </div>

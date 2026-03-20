@@ -51,7 +51,7 @@ export function ProductGallery({ name, images, inStock }: ProductGalleryProps) {
                 className="product-gallery-zoom"
                 style={{
                   backgroundImage: `url(${mainImage})`,
-                  backgroundPosition: `${zoomPosition.x}% ${zoomPosition.y}%`,
+                  backgroundPosition: isZooming ? `${zoomPosition.x}% ${zoomPosition.y}%` : "50% 50%",
                   backgroundSize: isZooming ? "220%" : "contain",
                 }}
               />

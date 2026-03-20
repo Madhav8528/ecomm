@@ -123,7 +123,7 @@ const paymentMethods = [
 ];
 
 const bankDetails = {
-  accountName: "Guru Glass Packaging Solutions",
+  accountName: "Clearpiece Glass Packaging Solutions",
   accountNumber: "012345678901",
   bankName: "HDFC Bank",
   ifsc: "HDFC0001234",
@@ -635,7 +635,7 @@ export function CheckoutContent() {
           key: init.key_id,
           amount: init.amount,
           currency: init.currency,
-          name: "Guru",
+          name: "Clearpiece",
           description: "Order Payment",
           order_id: init.razorpay_order_id,
           handler: async (response: any) => {

@@ -23,7 +23,14 @@ export type Product = {
   reviewCount: number;
   features: string[];
   packSize?: number;
-  closures?: { name: string; price: number; image?: string }[];
+  closures?: {
+    id: string;
+    name: string;
+    price: number;
+    image?: string;
+    sizeMm?: number;
+    specs?: Record<string, string | number>;
+  }[];
   images?: string[];
   specs?: {
     capacity: string;

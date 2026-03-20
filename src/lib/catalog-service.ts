@@ -36,7 +36,14 @@ type ProductApi = {
   use_case_copy?: string[];
   seo_keywords?: string[];
   images?: { id: number; url: string; is_primary: boolean; sort_order: number }[];
-  closures?: { id: number; name: string; price: string | number; image?: string }[];
+  closures?: {
+    id: number;
+    name: string;
+    price: string | number;
+    image?: string;
+    size_mm?: number | null;
+    specs?: Record<string, string | number>;
+  }[];
 };
 
 type OrderItemApi = {
@@ -133,9 +140,12 @@ function mapProduct(product: ProductApi): Product {
     useCaseCopy: product.use_case_copy,
     seoKeywords: product.seo_keywords,
     closures: product.closures?.map((closure) => ({
+      id: String(closure.id),
       name: closure.name,
       price: Number(closure.price),
       image: closure.image,
+      sizeMm: closure.size_mm ?? undefined,
+      specs: closure.specs ?? undefined,
     })),
     images: product.images?.map((image) => image.url),
   };

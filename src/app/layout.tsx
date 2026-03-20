@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { Lora, Source_Sans_3 } from "next/font/google";
+import { Inter, Lora, Poppins } from "next/font/google";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 
-const sourceSans = Source_Sans_3({
+const inter = Inter({
   variable: "--font-body",
   subsets: ["latin"],
 });
@@ -15,12 +15,18 @@ const lora = Lora({
   subsets: ["latin"],
 });
 
+const poppins = Poppins({
+  variable: "--font-accent",
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+});
+
 export const metadata: Metadata = {
   title: {
-    default: "Guru",
-    template: "%s | Guru",
+    default: "Clearpiece",
+    template: "%s | Clearpiece",
   },
-  description: "Guru glass jars, bottles, and packaging storefront",
+  description: "Clearpiece glass jars, bottles, and premium packaging storefront",
 };
 
 export default function RootLayout({
@@ -30,7 +36,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${sourceSans.variable} ${lora.variable}`} suppressHydrationWarning>
+      <body
+        className={`${inter.variable} ${lora.variable} ${poppins.variable}`}
+        suppressHydrationWarning
+      >
         <Providers>
           <div className="site-shell">
             <SiteHeader />

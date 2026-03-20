@@ -9,17 +9,17 @@ export default function AboutUsPage() {
     <>
       <header className="page-header">
         <div className="container">
-          <h1>About Guru</h1>
+          <h1>About Clearpiece</h1>
           <p>
-            We build reliable glass packaging solutions for FMCG, food,
-            beverages, pharma, and corporate gifting.
+            We craft ultra-clear glass packaging for FMCG, food, beverages, pharma,
+            and premium gifting.
           </p>
         </div>
       </header>
       <section className="section">
         <div className="container card">
           <p>
-            Guru focuses on scalable production, strict quality checks, and
+            Clearpiece focuses on scalable production, precision inspection, and
             customization support for modern brands.
           </p>
         </div>
@@ -27,4 +27,3 @@ export default function AboutUsPage() {
     </>
   );
 }
-

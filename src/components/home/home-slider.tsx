@@ -6,29 +6,29 @@ import Image from "next/image";
 
 const slides = [
   {
-    title: "Premium Glass Jars for Modern Brands",
-    subtitle: "Replace with your final campaign image 1.",
+    title: "Pure Clarity Glass Jars",
+    subtitle: "Low-iron glass and flawless finish for premium labels.",
     ctaLabel: "Explore Glass Jars",
     ctaHref: "/products?q=jar",
     image: "/banners/banner-1.svg",
   },
   {
-    title: "Elegant Bottle Packaging Collection",
-    subtitle: "Replace with your final campaign image 2.",
+    title: "Signature Bottle Profiles",
+    subtitle: "Refined silhouettes designed for beverages and wellness.",
     ctaLabel: "Explore Glass Bottles",
     ctaHref: "/products?q=bottle",
     image: "/banners/banner-2.svg",
   },
   {
-    title: "Cap Closures and Custom Branding",
-    subtitle: "Replace with your final campaign image 3.",
+    title: "Precision Closures & Custom Branding",
+    subtitle: "Secure seals, clean lines, and logo-ready finishes.",
     ctaLabel: "View Closure Options",
     ctaHref: "/products?q=cap",
     image: "/banners/banner-3.svg",
   },
   {
-    title: "Bulk Orders for Corporate Gifting",
-    subtitle: "Replace with your final campaign image 4.",
+    title: "Corporate Gifting in Glass",
+    subtitle: "Premium sets curated for high-volume gifting programs.",
     ctaLabel: "Corporate Gifting Jars",
     ctaHref: "/products?q=gift",
     image: "/banners/banner-4.svg",

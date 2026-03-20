@@ -15,7 +15,7 @@ export default function ContactUsPage() {
       </header>
       <section className="section">
         <div className="container card">
-          <p>Email: sales@gurupackaging.com</p>
+          <p>Email: sales@clearpiece.com</p>
           <p>Phone: +91 90000 12345</p>
           <p>Hours: Mon-Sat, 10:00 AM - 7:00 PM</p>
         </div>
@@ -23,4 +23,3 @@ export default function ContactUsPage() {
     </>
   );
 }
-

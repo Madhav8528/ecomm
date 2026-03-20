@@ -1,5 +1,8 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { AuthControls } from "./auth-controls";
 import { CartLink } from "./cart-link";
 
@@ -14,23 +17,21 @@ const navLinks = [
 ];
 
 export function SiteHeader() {
+  const pathname = usePathname();
   return (
     <header className="site-header">
-      <div className="top-offer-banner">Minimum order value is 8000</div>
+      <div className="top-offer-banner">The Minnimum Order Value is only 8000/- rs !!</div>
       <div className="container header-top">
         <Link href="/" className="brand brand-block">
           <Image
-            src="/guru-logo.svg"
-            alt="Guru logo"
-            width={54}
-            height={54}
+            src="/clearpiece-logo.png"
+            alt="Clearpiece logo"
+            width={260}
+            height={84}
             className="brand-logo"
             priority
           />
-          <span>
-            Guru
-            <span className="brand-subtitle">Premium Glass Packaging Solutions</span>
-          </span>
+          <span className="brand-subtitle">For Every Glassware Need</span>
         </Link>
         <form action="/products" method="get" className="header-search">
           <input
@@ -50,11 +51,18 @@ export function SiteHeader() {
       </div>
       <nav className="main-nav">
         <div className="container main-nav-inner">
-          {navLinks.map((item) => (
-            <Link key={item.href} href={item.href} className="main-nav-item">
-              {item.label}
-            </Link>
-          ))}
+          {navLinks.map((item) => {
+            const isActive = pathname === item.href || pathname.startsWith(item.href + "?");
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`main-nav-item ${isActive ? "active" : ""}`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
         </div>
       </nav>
     </header>

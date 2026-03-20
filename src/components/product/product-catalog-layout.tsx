@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { ProductCard } from "@/components/product/product-card";
 import type { Category, Product } from "@/types/catalog";
 
@@ -25,6 +25,8 @@ export function ProductCatalogLayout({
   const [inStockOnly, setInStockOnly] = useState(false);
   const [bestSellerOnly, setBestSellerOnly] = useState(false);
   const [sortBy, setSortBy] = useState<SortBy>("featured");
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 15;
 
   const categoriesInProducts = useMemo(() => {
     const slugs = new Set(products.map((product) => product.categorySlug));
@@ -63,6 +65,20 @@ export function ProductCatalogLayout({
 
     return next;
   }, [bestSellerOnly, inStockOnly, priceBand, products, selectedCategories, sortBy]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCategories, priceBand, inStockOnly, bestSellerOnly, sortBy]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / ITEMS_PER_PAGE));
+  const paginatedProducts = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredProducts.slice(start, start + ITEMS_PER_PAGE);
+  }, [currentPage, filteredProducts, ITEMS_PER_PAGE]);
+
+  const pageNumbers = useMemo(() => {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }, [totalPages]);
 
   function toggleCategory(slug: string) {
     setSelectedCategories((prev) =>
@@ -208,7 +224,7 @@ export function ProductCatalogLayout({
 
             {filteredProducts.length ? (
               <div className="grid product-grid">
-                {filteredProducts.map((product) => (
+                {paginatedProducts.map((product) => (
                   <ProductCard key={product.id} product={product} />
                 ))}
               </div>
@@ -217,6 +233,37 @@ export function ProductCatalogLayout({
                 <h3>No products match these filters</h3>
               </div>
             )}
+
+            {filteredProducts.length > ITEMS_PER_PAGE ? (
+              <div className="pagination">
+                <button
+                  type="button"
+                  className="pagination-button"
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </button>
+                {pageNumbers.map((page) => (
+                  <button
+                    key={page}
+                    type="button"
+                    className={`pagination-button ${page === currentPage ? "active" : ""}`}
+                    onClick={() => setCurrentPage(page)}
+                  >
+                    {page}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className="pagination-button"
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
       </section>

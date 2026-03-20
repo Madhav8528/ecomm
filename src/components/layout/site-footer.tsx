@@ -5,15 +5,15 @@ export function SiteFooter() {
     <footer className="site-footer">
       <div className="container footer-grid">
         <div>
-          <h4>Guru</h4>
+          <h4>Clearpiece</h4>
           <p>
-            Guru offers premium glass jars, bottles, and closures for brands,
-            manufacturers, and corporate gifting programs.
+            Clearpiece delivers crystal-clear glass jars, bottles, and closures for brands,
+            manufacturers, and premium gifting programs.
           </p>
           <p style={{ marginTop: "0.6rem" }}>
             Plot 14, Industrial Estate, Pune, Maharashtra
           </p>
-          <p>Email: sales@gurupackaging.com</p>
+          <p>Email: sales@clearpiece.com</p>
           <p>Phone: +91 90000 12345</p>
         </div>
         <div>
@@ -65,7 +65,7 @@ export function SiteFooter() {
       </div>
       <div className="footer-base">
         <div className="container">
-          <p>Copyright {new Date().getFullYear()} Guru. All rights reserved.</p>
+          <p>Copyright {new Date().getFullYear()} Clearpiece. All rights reserved.</p>
         </div>
       </div>
     </footer>

@@ -6,33 +6,6 @@ import { formatCurrency } from "@/lib/format";
 import type { Product } from "@/types/catalog";
 import { useCart } from "@/context/cart-context";
 
-const DEFAULT_CLOSURES = [
-  {
-    name: "Silver Screw Cap",
-    price: 2,
-    image:
-      "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D'http%3A//www.w3.org/2000/svg'%20width%3D'120'%20height%3D'120'%3E%3Crect%20width%3D'120'%20height%3D'120'%20rx%3D'18'%20fill%3D'%23e9edf2'/%3E%3Ccircle%20cx%3D'60'%20cy%3D'60'%20r%3D'36'%20fill%3D'%23b9c0c8'/%3E%3Ctext%20x%3D'60'%20y%3D'66'%20text-anchor%3D'middle'%20font-size%3D'16'%20font-family%3D'Arial'%20fill%3D'%23455463'%3ESilver%3C/text%3E%3C/svg%3E",
-  },
-  {
-    name: "Gold Metal Lid",
-    price: 3,
-    image:
-      "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D'http%3A//www.w3.org/2000/svg'%20width%3D'120'%20height%3D'120'%3E%3Crect%20width%3D'120'%20height%3D'120'%20rx%3D'18'%20fill%3D'%23fff1d6'/%3E%3Ccircle%20cx%3D'60'%20cy%3D'60'%20r%3D'36'%20fill%3D'%23e2b869'/%3E%3Ctext%20x%3D'60'%20y%3D'66'%20text-anchor%3D'middle'%20font-size%3D'16'%20font-family%3D'Arial'%20fill%3D'%237a5a1d'%3EGold%3C/text%3E%3C/svg%3E",
-  },
-  {
-    name: "Matte Black Cap",
-    price: 4,
-    image:
-      "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D'http%3A//www.w3.org/2000/svg'%20width%3D'120'%20height%3D'120'%3E%3Crect%20width%3D'120'%20height%3D'120'%20rx%3D'18'%20fill%3D'%2325282e'/%3E%3Ccircle%20cx%3D'60'%20cy%3D'60'%20r%3D'36'%20fill%3D'%23393d46'/%3E%3Ctext%20x%3D'60'%20y%3D'66'%20text-anchor%3D'middle'%20font-size%3D'16'%20font-family%3D'Arial'%20fill%3D'%23f1f3f5'%3EBlack%3C/text%3E%3C/svg%3E",
-  },
-  {
-    name: "Wooden Cork",
-    price: 6,
-    image:
-      "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D'http%3A//www.w3.org/2000/svg'%20width%3D'120'%20height%3D'120'%3E%3Crect%20width%3D'120'%20height%3D'120'%20rx%3D'18'%20fill%3D'%23f7e6d4'/%3E%3Ccircle%20cx%3D'60'%20cy%3D'60'%20r%3D'36'%20fill%3D'%23c08a5c'/%3E%3Ctext%20x%3D'60'%20y%3D'66'%20text-anchor%3D'middle'%20font-size%3D'16'%20font-family%3D'Arial'%20fill%3D'%236a3f1c'%3EWood%3C/text%3E%3C/svg%3E",
-  },
-];
-
 type ProductPurchasePanelProps = {
   product: Product;
 };
@@ -40,24 +13,31 @@ type ProductPurchasePanelProps = {
 export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
   const { addItem } = useCart();
   const packSize = product.packSize ?? 40;
-  const closures = product.closures?.length ? product.closures : DEFAULT_CLOSURES;
+  const closures = product.closures ?? [];
   const closureOptions = [
-    { name: "No closure needed", price: 0 },
+    { id: "none", name: "No closure needed", price: 0 },
     ...closures,
   ];
   const [boxCount, setBoxCount] = useState(1);
-  const [selectedClosure, setSelectedClosure] = useState(closureOptions[0]?.name ?? "");
+  const [selectedClosureId, setSelectedClosureId] = useState(closureOptions[0]?.id ?? "none");
   const [showSummary, setShowSummary] = useState(false);
 
   const safePackSize = Math.max(1, packSize);
   const safeBoxCount = Math.max(1, boxCount);
   const totalPcs = useMemo(() => safeBoxCount * safePackSize, [safeBoxCount, safePackSize]);
-  const selectedClosureRate =
-    closureOptions.find((closure) => closure.name === selectedClosure)?.price ?? 0;
+  const selectedClosureOption =
+    closureOptions.find((closure) => closure.id === selectedClosureId) ?? closureOptions[0];
+  const selectedClosureRate = selectedClosureOption?.price ?? 0;
   const inStock = product.stock > 0;
   const productCost = product.price * totalPcs;
   const closureCost = selectedClosureRate * totalPcs;
   const grandTotal = productCost + closureCost;
+  const selectedClosureLabel = selectedClosureOption?.sizeMm
+    ? `${selectedClosureOption.name} (${selectedClosureOption.sizeMm}mm)`
+    : selectedClosureOption?.name ?? "No closure needed";
+  const selectedClosureSku = selectedClosureOption?.sizeMm
+    ? `${selectedClosureOption.name}-${selectedClosureOption.sizeMm}mm`
+    : selectedClosureOption?.name ?? "No closure needed";
 
   function handleAddToCart() {
     addItem({
@@ -71,12 +51,12 @@ export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
       packSize: packSize,
     });
 
-    if (selectedClosureRate > 0 && selectedClosure !== "No closure needed") {
+    if (selectedClosureRate > 0 && selectedClosureId !== "none") {
       addItem({
-        id: `${product.id}-closure-${selectedClosure}`,
+        id: `${product.id}-closure-${selectedClosureId}`,
         slug: product.slug,
-        name: `${selectedClosure} (Closure)`,
-        sku: `${product.sku}-CAP`,
+        name: `${selectedClosureLabel} (Closure)`,
+        sku: `${product.sku}-CAP-${selectedClosureSku}`,
         categorySlug: "closures",
         price: selectedClosureRate,
         quantity: totalPcs,
@@ -155,19 +135,29 @@ export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
             <h4 className="closure-heading">CLOSURE OPTIONS FOR THIS GLASS BOTTLE *</h4>
             <label className="field field-full">
               <select
-                value={selectedClosure}
-                onChange={(event) => setSelectedClosure(event.target.value)}
+                value={selectedClosureId}
+                onChange={(event) => setSelectedClosureId(event.target.value)}
               >
                 {closureOptions.map((closure) => (
-                  <option key={closure.name} value={closure.name}>
-                    {closure.price > 0
-                      ? `${closure.name} (+${formatCurrency(closure.price)})`
-                      : closure.name}
+                  <option key={closure.id} value={closure.id}>
+                    {closure.sizeMm ? `${closure.name} (${closure.sizeMm}mm)` : closure.name}
+                    {closure.price > 0 ? ` (+${formatCurrency(closure.price)})` : ""}
                   </option>
                 ))}
               </select>
             </label>
             <p className="muted closure-note">* Closure price added per piece</p>
+            {selectedClosureOption?.image ? (
+              <div className="closure-row">
+                <div className="closure-preview">
+                  <img src={selectedClosureOption.image} alt={selectedClosureLabel} />
+                </div>
+                <div>
+                  <strong>{selectedClosureLabel}</strong>
+                  <p className="muted">Selected closure preview</p>
+                </div>
+              </div>
+            ) : null}
           </div>
 
           <div className="action-row">
@@ -197,7 +187,7 @@ export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
             <div className="cart-modal-body">
               <div className="summary-title">
                 <strong>{product.name}</strong>
-                <span>{selectedClosure}</span>
+                <span>{selectedClosureLabel}</span>
               </div>
               <div className="summary-line">
                 <span>Total pcs</span>
@@ -207,9 +197,9 @@ export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
                 <span>{product.name} ({formatCurrency(product.price)} x {totalPcs})</span>
                 <strong>{formatCurrency(productCost)}</strong>
               </div>
-              {selectedClosureRate > 0 && selectedClosure !== "No closure needed" ? (
+              {selectedClosureRate > 0 && selectedClosureId !== "none" ? (
                 <div className="summary-line">
-                  <span>{selectedClosure} ({formatCurrency(selectedClosureRate)} x {totalPcs})</span>
+                  <span>{selectedClosureLabel} ({formatCurrency(selectedClosureRate)} x {totalPcs})</span>
                   <strong>{formatCurrency(closureCost)}</strong>
                 </div>
               ) : null}
