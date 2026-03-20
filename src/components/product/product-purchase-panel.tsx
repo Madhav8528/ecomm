@@ -38,6 +38,10 @@ export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
   const selectedClosureSku = selectedClosureOption?.sizeMm
     ? `${selectedClosureOption.name}-${selectedClosureOption.sizeMm}mm`
     : selectedClosureOption?.name ?? "No closure needed";
+  const mrp = product.compareAtPrice ?? null;
+  const discountPct =
+    mrp && mrp > product.price ? Math.round(((mrp - product.price) / mrp) * 100) : null;
+  const gstInclusivePrice = product.price * 1.18;
 
   function handleAddToCart() {
     addItem({
@@ -88,13 +92,25 @@ export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
       <div className="purchase-grid">
         <div className="purchase-controls">
           <div className="price-box">
-            <span className="price">
-              {formatCurrency(product.price)} <span className="price-tag">(GST Exclusive)</span>
-            </span>
-            <span className="price-secondary">
-              MRP: {formatCurrency(product.price * 1.18)}{" "}
-              <span className="price-meta">(18% GST Inclusive)</span>
-            </span>
+            {discountPct && mrp ? (
+              <div className="price-top-row">
+                <span className="price-discount-badge">{discountPct}% off</span>
+                <span className="price-mrp">
+                  M.R.P. <s>₹{mrp.toFixed(2)}</s>
+                </span>
+              </div>
+            ) : null}
+
+            <div className="price-main-row">
+              <span className="price-final">{formatCurrency(product.price)}</span>
+              <span className="price-tag-gst">GST Excl.</span>
+            </div>
+
+            <div className="price-gst-row">
+              <span className="price-gst-label">
+                ₹{gstInclusivePrice.toFixed(2)} inclusive of all taxes (18% GST)
+              </span>
+            </div>
           </div>
           <div className="control-block">
             <h4>Select Quantity</h4>

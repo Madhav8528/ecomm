@@ -33,6 +33,22 @@ export function ProductGallery({ name, images, inStock }: ProductGalleryProps) {
   return (
     <>
       <article className="card product-gallery">
+        <div className="gallery-thumb-strip">
+          {galleryImages.map((image, index) => {
+            const isActive = index === activeIndex;
+            return (
+              <button
+                type="button"
+                className={`product-gallery-thumb ${isActive ? "active" : ""}`}
+                key={`thumb-${index}`}
+                onClick={() => setActiveIndex(index)}
+              >
+                <img src={image} alt={`${name} view ${index + 1}`} />
+              </button>
+            );
+          })}
+        </div>
+
         <div className="product-gallery-main">
           <div
             className={`product-gallery-frame ${mainImage ? "has-image" : ""}`}
@@ -62,30 +78,14 @@ export function ProductGallery({ name, images, inStock }: ProductGalleryProps) {
                 <span>Image coming soon</span>
               </div>
             )}
-            <span className="zoom-icon" aria-hidden="true">??</span>
+            <span className="zoom-icon" aria-hidden="true">🔍</span>
           </div>
-        </div>
 
-        <div className="gallery-stock-row">
-          <span className={`stock-sticker ${inStock ? "in" : "out"}`}>
-            ? {inStock ? "In Stock" : "Out of Stock"}
-          </span>
-        </div>
-
-        <div className="product-gallery-thumbs">
-          {galleryImages.map((image, index) => {
-            const isActive = index === activeIndex;
-            return (
-              <button
-                type="button"
-                className={`product-gallery-thumb ${isActive ? "active" : ""}`}
-                key={`thumb-${index}`}
-                onClick={() => setActiveIndex(index)}
-              >
-                <img src={image} alt={`${name} view ${index + 1}`} />
-              </button>
-            );
-          })}
+          <div className="gallery-stock-row">
+            <span className={`stock-sticker ${inStock ? "in" : "out"}`}>
+              ● {inStock ? "In Stock" : "Out of Stock"}
+            </span>
+          </div>
         </div>
       </article>
 

@@ -100,7 +100,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
       <ProductQualityPanel />
 
       <section className="section">
-        <div className="container detail-three-col">
+        <div className="container">
           <article className="card detail-specs">
             <div className="detail-panel-header">
               <span className="detail-panel-icon">
@@ -111,7 +111,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
               </span>
               <h3>Specifications</h3>
             </div>
-            <div className="spec-grid">
+            <div className="spec-grid-horizontal">
               <div><span className="spec-label">Capacity</span><strong>{specs.capacity}</strong></div>
               <div><span className="spec-label">Height</span><strong>{specs.height}</strong></div>
               <div><span className="spec-label">Width</span><strong>{specs.width}</strong></div>
@@ -122,42 +122,42 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
             </div>
           </article>
 
-          <article className="card detail-description">
-            <div className="detail-panel-header">
-              <span className="detail-panel-icon">
-                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
-                  <path d="M4 5h12M4 8h12M4 11h8" strokeLinecap="round" />
-                  <circle cx="15" cy="14" r="3" />
-                  <path d="M17.5 16.5l-1.5-1.5" strokeLinecap="round" />
-                </svg>
-              </span>
-              <h3>About This Product</h3>
-            </div>
-            <p className="detail-description-text">{product.description || product.shortDescription}</p>
-          </article>
+          <div className="detail-bottom-row">
+            <article className="card detail-description">
+              <div className="detail-panel-header">
+                <span className="detail-panel-icon">
+                  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+                    <path d="M4 5h12M4 8h12M4 11h8" strokeLinecap="round" />
+                  </svg>
+                </span>
+                <h3>About This Product</h3>
+              </div>
+              <p className="detail-description-text">{product.description || product.shortDescription}</p>
+            </article>
 
-          <article className="card detail-best-fits">
-            <div className="detail-panel-header">
-              <span className="detail-panel-icon">
-                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
-                  <path d="M10 3l1.8 5.5H17l-4.6 3.3 1.8 5.5L10 14l-4.2 3.3 1.8-5.5L3 8.5h5.2z" strokeLinejoin="round" />
-                </svg>
-              </span>
-              <h3>Best Fits</h3>
-            </div>
-            <ul className="best-fits-list">
-              {useCaseCopy.map((line) => (
-                <li key={line} className="best-fits-item">
-                  <span className="best-fits-check">
-                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M3 8l3.5 3.5L13 4" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </span>
-                  <span>{line}</span>
-                </li>
-              ))}
-            </ul>
-          </article>
+            <article className="card detail-best-fits">
+              <div className="detail-panel-header">
+                <span className="detail-panel-icon">
+                  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+                    <path d="M10 3l1.8 5.5H17l-4.6 3.3 1.8 5.5L10 14l-4.2 3.3 1.8-5.5L3 8.5h5.2z" strokeLinejoin="round" />
+                  </svg>
+                </span>
+                <h3>Best Fits</h3>
+              </div>
+              <ul className="best-fits-list">
+                {useCaseCopy.map((line) => (
+                  <li key={line} className="best-fits-item">
+                    <span className="best-fits-check">
+                      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M3 8l3.5 3.5L13 4" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </span>
+                    <span>{line}</span>
+                  </li>
+                ))}
+              </ul>
+            </article>
+          </div>
         </div>
       </section>
 
