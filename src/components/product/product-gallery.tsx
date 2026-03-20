@@ -34,9 +34,6 @@ export function ProductGallery({ name, images, inStock }: ProductGalleryProps) {
     <>
       <article className="card product-gallery">
         <div className="product-gallery-main">
-          <span className={`stock-sticker ${inStock ? "in" : "out"}`}>
-            {inStock ? "In Stock" : "Out of Stock"}
-          </span>
           <div
             className={`product-gallery-frame ${mainImage ? "has-image" : ""}`}
             onClick={() => mainImage && setIsModalOpen(true)}
@@ -56,38 +53,39 @@ export function ProductGallery({ name, images, inStock }: ProductGalleryProps) {
                 }}
               />
             ) : (
-              <>
-                <span>{name}</span>
-                <small>Main view</small>
-              </>
+              <div className="gallery-no-image">
+                <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="1.2">
+                  <rect x="6" y="10" width="36" height="28" rx="4" />
+                  <circle cx="18" cy="22" r="4" />
+                  <path d="M6 34l10-10 8 8 6-6 12 12" />
+                </svg>
+                <span>Image coming soon</span>
+              </div>
             )}
-            <span className="zoom-icon" aria-hidden="true">
-              🔍
-            </span>
+            <span className="zoom-icon" aria-hidden="true">??</span>
           </div>
         </div>
 
+        <div className="gallery-stock-row">
+          <span className={`stock-sticker ${inStock ? "in" : "out"}`}>
+            ? {inStock ? "In Stock" : "Out of Stock"}
+          </span>
+        </div>
+
         <div className="product-gallery-thumbs">
-          {galleryImages.length
-            ? galleryImages.map((image, index) => {
-                const isActive = index === activeIndex;
-                return (
-                  <button
-                    type="button"
-                    className={`product-gallery-thumb ${isActive ? "active" : ""}`}
-                    key={`thumb-${image}-${index}`}
-                    onClick={() => setActiveIndex(index)}
-                  >
-                    <img src={image} alt={`${name} view ${index + 1}`} />
-                  </button>
-                );
-              })
-            : [1, 2, 3].map((index) => (
-                <div className="product-gallery-thumb" key={`thumb-${index}`}>
-                  <span>{name}</span>
-                  <small>Angle {index}</small>
-                </div>
-              ))}
+          {galleryImages.map((image, index) => {
+            const isActive = index === activeIndex;
+            return (
+              <button
+                type="button"
+                className={`product-gallery-thumb ${isActive ? "active" : ""}`}
+                key={`thumb-${index}`}
+                onClick={() => setActiveIndex(index)}
+              >
+                <img src={image} alt={`${name} view ${index + 1}`} />
+              </button>
+            );
+          })}
         </div>
       </article>
 

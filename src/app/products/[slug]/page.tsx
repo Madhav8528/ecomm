@@ -22,6 +22,7 @@ export async function generateMetadata({
   return {
     title: product.name,
     description: product.shortDescription,
+    keywords: product.seoKeywords?.join(", "),
   };
 }
 
@@ -91,7 +92,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
             />
           </div>
 
-          <aside className="card">
+          <aside>
             <ProductPurchasePanel product={product} />
           </aside>
         </div>
@@ -99,51 +100,63 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
       <ProductQualityPanel />
 
       <section className="section">
-        <div className="container detail-layout">
+        <div className="container detail-three-col">
           <article className="card detail-specs">
-            <h3>Specifications</h3>
+            <div className="detail-panel-header">
+              <span className="detail-panel-icon">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+                  <rect x="3" y="3" width="14" height="14" rx="2" />
+                  <path d="M7 7h6M7 10h6M7 13h4" strokeLinecap="round" />
+                </svg>
+              </span>
+              <h3>Specifications</h3>
+            </div>
             <div className="spec-grid">
-              <div>
-                <span className="spec-label">Capacity</span>
-                <strong>{specs.capacity}</strong>
-              </div>
-              <div>
-                <span className="spec-label">Height</span>
-                <strong>{specs.height}</strong>
-              </div>
-              <div>
-                <span className="spec-label">Width</span>
-                <strong>{specs.width}</strong>
-              </div>
-              <div>
-                <span className="spec-label">Weight</span>
-                <strong>{specs.weight}</strong>
-              </div>
-              <div>
-                <span className="spec-label">Glass Color</span>
-                <strong>{specs.color}</strong>
-              </div>
-              <div>
-                <span className="spec-label">Shape</span>
-                <strong>{specs.shape}</strong>
-              </div>
-              <div>
-                <span className="spec-label">Neck Size</span>
-                <strong>{specs.neckSize}</strong>
-              </div>
+              <div><span className="spec-label">Capacity</span><strong>{specs.capacity}</strong></div>
+              <div><span className="spec-label">Height</span><strong>{specs.height}</strong></div>
+              <div><span className="spec-label">Width</span><strong>{specs.width}</strong></div>
+              <div><span className="spec-label">Weight</span><strong>{specs.weight}</strong></div>
+              <div><span className="spec-label">Glass Color</span><strong>{specs.color}</strong></div>
+              <div><span className="spec-label">Shape</span><strong>{specs.shape}</strong></div>
+              <div><span className="spec-label">Neck Size</span><strong>{specs.neckSize}</strong></div>
             </div>
           </article>
 
-          <article className="card detail-copy">
-            <h3>Best Fits & Keywords</h3>
-            <div className="detail-lines">
-              {useCaseCopy.map((line) => (
-                <p key={line}>{line}</p>
-              ))}
+          <article className="card detail-description">
+            <div className="detail-panel-header">
+              <span className="detail-panel-icon">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+                  <path d="M4 5h12M4 8h12M4 11h8" strokeLinecap="round" />
+                  <circle cx="15" cy="14" r="3" />
+                  <path d="M17.5 16.5l-1.5-1.5" strokeLinecap="round" />
+                </svg>
+              </span>
+              <h3>About This Product</h3>
             </div>
-            <p className="keyword-note">
-              Common search terms include {seoKeywords.join(", ")}.
-            </p>
+            <p className="detail-description-text">{product.description || product.shortDescription}</p>
+          </article>
+
+          <article className="card detail-best-fits">
+            <div className="detail-panel-header">
+              <span className="detail-panel-icon">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+                  <path d="M10 3l1.8 5.5H17l-4.6 3.3 1.8 5.5L10 14l-4.2 3.3 1.8-5.5L3 8.5h5.2z" strokeLinejoin="round" />
+                </svg>
+              </span>
+              <h3>Best Fits</h3>
+            </div>
+            <ul className="best-fits-list">
+              {useCaseCopy.map((line) => (
+                <li key={line} className="best-fits-item">
+                  <span className="best-fits-check">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M3 8l3.5 3.5L13 4" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </span>
+                  <span>{line}</span>
+                </li>
+              ))}
+            </ul>
           </article>
         </div>
       </section>

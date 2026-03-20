@@ -49,6 +49,7 @@ export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
       price: product.price,
       quantity: totalPcs,
       packSize: packSize,
+      image: product.images?.[0],
     });
 
     if (selectedClosureRate > 0 && selectedClosureId !== "none") {
@@ -170,7 +171,7 @@ export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
             </button>
           </div>
           <p className={`stock-pill ${inStock ? "in" : "out"}`}>
-            ✓ In Stock — Dispatches in 24-48 hrs
+            In Stock - Dispatches in 24-48 hrs
           </p>
         </div>
 

@@ -72,11 +72,11 @@ type Paginated<T> = {
   results: T[];
 };
 
-const FEATURED_CATEGORY_SLUGS = new Set(["water-bottles", "flasks", "lunch-boxes"]);
+const FEATURED_CATEGORY_SLUGS = new Set(["glass-jars", "glass-bottles", "corporate-gifting"]);
 const DEFAULT_FEATURES = [
-  "Quality checked product",
-  "Managed from admin panel",
-  "Fast shipping support",
+  "Food-safe, BPA-free glass",
+  "Export quality tested",
+  "Suitable for airtight closures",
 ];
 
 function normalizeList<T>(payload: T[] | Paginated<T>): T[] {

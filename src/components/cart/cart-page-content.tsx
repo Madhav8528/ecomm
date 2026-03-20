@@ -27,14 +27,17 @@ export function CartPageContent() {
 
   if (!items.length) {
     return (
-      <div className="card empty-state">
+      <div className="empty-cart-state">
+        <div className="empty-cart-icon">
+          <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M8 12h6l8 32h28l6-22H20" strokeLinecap="round" strokeLinejoin="round" />
+            <circle cx="28" cy="52" r="3" />
+            <circle cx="46" cy="52" r="3" />
+          </svg>
+        </div>
         <h3>Your cart is empty</h3>
-        <p className="muted" style={{ marginTop: "0.4rem" }}>
-          Add items from the catalog and return here to checkout.
-        </p>
-        <Link href="/products" className="btn btn-primary" style={{ marginTop: "1rem" }}>
-          Continue Shopping
-        </Link>
+        <p className="muted">Browse our catalog and add products to get started.</p>
+        <Link href="/products" className="btn btn-primary">Browse Products</Link>
       </div>
     );
   }
@@ -99,56 +102,58 @@ export function CartPageContent() {
       <section className="card list-panel">
         {items.map((item) => (
           <article key={item.id} className="cart-row">
-            <div>
-              <Link href={`/products/${item.slug}`} className="cart-row-title">
-                {item.name}
-              </Link>
-              <p className="muted">
-                SKU: {item.sku} | {formatCurrency(item.price)}
-              </p>
+            <div className="cart-row-image">
+              {item.image ? (
+                <img src={item.image} alt={item.name} />
+              ) : (
+                <div className="cart-row-image-placeholder">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4">
+                    <rect x="3" y="3" width="18" height="18" rx="3" />
+                    <circle cx="8.5" cy="8.5" r="1.5" />
+                    <path d="M21 15l-5-5L5 21" />
+                  </svg>
+                </div>
+              )}
+            </div>
+
+            <div className="cart-row-info">
+              <Link href={`/products/${item.slug}`} className="cart-row-title">{item.name}</Link>
+              <p className="cart-row-sku">SKU: {item.sku}</p>
               {item.categorySlug !== "closures" ? (
-                <p className="muted" style={{ marginTop: "0.25rem" }}>
-                  {getBoxCount(item)} box{getBoxCount(item) > 1 ? "es" : ""} ×{" "}
-                  {getPackSize(item)} pcs/box = {getBoxCount(item) * getPackSize(item)} pcs
+                <p className="cart-row-meta">
+                  {getBoxCount(item)} box{getBoxCount(item) > 1 ? "es" : ""} &times; {getPackSize(item)} pcs/box
+                  <span className="cart-row-total-pcs"> = {getBoxCount(item) * getPackSize(item)} pcs</span>
                 </p>
               ) : null}
+              <p className="cart-row-unit-price">{formatCurrency(item.price)} <span className="cart-row-price-label">per pc</span></p>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.55rem" }}>
+
+            <div className="cart-row-controls">
               <div className="quantity-control">
-                <button
-                  type="button"
-                  className="qty-btn"
-                  onClick={() =>
-                    item.categorySlug === "closures"
-                      ? updateQuantity(item.id, item.quantity - 1)
-                      : updateBoxes(item, getBoxCount(item) - 1)
-                  }
-                >
-                  -
-                </button>
-                <span>
-                  {item.categorySlug === "closures"
-                    ? item.quantity
-                    : getBoxCount(item)}
+                <button type="button" className="qty-btn" onClick={() =>
+                  item.categorySlug === "closures"
+                    ? updateQuantity(item.id, item.quantity - 1)
+                    : updateBoxes(item, getBoxCount(item) - 1)
+                }>-</button>
+                <span className="qty-value">
+                  {item.categorySlug === "closures" ? item.quantity : getBoxCount(item)}
                 </span>
-                <button
-                  type="button"
-                  className="qty-btn"
-                  onClick={() =>
-                    item.categorySlug === "closures"
-                      ? updateQuantity(item.id, item.quantity + 1)
-                      : updateBoxes(item, getBoxCount(item) + 1)
-                  }
-                >
-                  +
-                </button>
+                <button type="button" className="qty-btn" onClick={() =>
+                  item.categorySlug === "closures"
+                    ? updateQuantity(item.id, item.quantity + 1)
+                    : updateBoxes(item, getBoxCount(item) + 1)
+                }>+</button>
               </div>
+              <p className="cart-row-line-total">{formatCurrency(item.price * item.quantity)}</p>
               <button
                 type="button"
-                className="btn btn-danger"
+                className="cart-row-remove"
                 onClick={() => removeItem(item.id)}
+                aria-label="Remove item"
               >
-                Remove
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
               </button>
             </div>
           </article>
@@ -187,45 +192,77 @@ export function CartPageContent() {
       </aside>
     </div>
     {showLogin ? (
-      <div className="modal-backdrop" onClick={() => setShowLogin(false)}>
-        <div className="modal-card" onClick={(event) => event.stopPropagation()}>
-          <h3>Sign In to Continue</h3>
-          <p className="muted">Login to proceed to checkout.</p>
-          <form onSubmit={handleLogin} className="form-grid" style={{ marginTop: "0.8rem" }}>
-            <div className="form-row">
-              <label htmlFor="cart-login-email">Email</label>
+      <div className="auth-drawer-backdrop" onClick={() => setShowLogin(false)}>
+        <div className="auth-drawer" onClick={(e) => e.stopPropagation()}>
+          <div className="auth-drawer-header">
+            <div>
+              <p className="auth-drawer-eyebrow">One step away</p>
+              <h2 className="auth-drawer-title">Sign in to place your order</h2>
+            </div>
+            <button
+              type="button"
+              className="auth-drawer-close"
+              onClick={() => setShowLogin(false)}
+              aria-label="Close"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
+
+          <div className="auth-drawer-divider" />
+
+          <form onSubmit={handleLogin} className="auth-drawer-form">
+            <div className="auth-drawer-field">
+              <label htmlFor="cart-login-email">Email address</label>
               <input
                 id="cart-login-email"
                 type="email"
                 required
+                placeholder="you@company.com"
                 value={loginEmail}
-                onChange={(event) => setLoginEmail(event.target.value)}
+                onChange={(e) => setLoginEmail(e.target.value)}
               />
             </div>
-            <div className="form-row">
-              <label htmlFor="cart-login-password">Password</label>
+            <div className="auth-drawer-field">
+              <div className="auth-drawer-label-row">
+                <label htmlFor="cart-login-password">Password</label>
+                <a href="/forgot-password" className="auth-drawer-forgot">Forgot password?</a>
+              </div>
               <input
                 id="cart-login-password"
                 type="password"
                 required
+                placeholder="????????"
                 value={loginPassword}
-                onChange={(event) => setLoginPassword(event.target.value)}
+                onChange={(e) => setLoginPassword(e.target.value)}
               />
             </div>
-            {loginError ? <p className="form-error">{loginError}</p> : null}
-            <div className="modal-actions">
-              <button type="button" className="btn-outline" onClick={() => setShowLogin(false)}>
-                Cancel
-              </button>
-              <button type="submit" className="btn btn-primary" disabled={loggingIn}>
-                {loggingIn ? "Signing in..." : "Sign In"}
-              </button>
-            </div>
+            {loginError ? (
+              <div className="auth-drawer-error">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <circle cx="8" cy="8" r="6" />
+                  <path d="M8 5v3M8 11v.5" strokeLinecap="round" />
+                </svg>
+                {loginError}
+              </div>
+            ) : null}
+            <button type="submit" className="btn btn-primary auth-drawer-submit" disabled={loggingIn}>
+              {loggingIn ? (
+                <>
+                  <span className="auth-spinner" />
+                  Signing in?</>
+              ) : (
+                <>Sign In &amp; Proceed to Checkout</>
+              )}
+            </button>
           </form>
-          <div style={{ marginTop: "0.8rem" }}>
-            <Link href="/register" className="btn btn-primary">
-              Create Account
-            </Link>
+
+          <div className="auth-drawer-footer">
+            <p className="auth-drawer-or"><span>or</span></p>
+            <p className="auth-drawer-register-prompt">New to ClearPiece?</p>
+            <a href="/register" className="btn auth-drawer-register-btn">Create a Free Account</a>
           </div>
         </div>
       </div>

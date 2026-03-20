@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
-const STORAGE_KEY = "ajanta-cart-v1";
+const STORAGE_KEY = "clearpiece-cart-v1";
 
 export type CartLine = {
   id: string;
@@ -14,6 +14,7 @@ export type CartLine = {
   quantity: number;
   packSize?: number;
   parentId?: string;
+  image?: string;
 };
 
 type AddItemInput = Omit<CartLine, "quantity"> & { quantity?: number };
