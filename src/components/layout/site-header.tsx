@@ -20,7 +20,7 @@ export function SiteHeader() {
   const pathname = usePathname();
   return (
     <header className="site-header">
-      <div className="top-offer-banner">The Minnimum Order Value is only 8000/- rs !!</div>
+      <div className="top-offer-banner">The Minimum Order Value is only 8000/- rs !!</div>
       <div className="container header-top">
         <Link href="/" className="brand brand-block">
           <Image

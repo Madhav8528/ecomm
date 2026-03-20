@@ -11,10 +11,10 @@ export function SiteFooter() {
             manufacturers, and premium gifting programs.
           </p>
           <p style={{ marginTop: "0.6rem" }}>
-            Plot 14, Industrial Estate, Pune, Maharashtra
+            Glass Nagar, Firozabad, Uttar Pradesh — 283103
           </p>
-          <p>Email: sales@clearpiece.com</p>
-          <p>Phone: +91 90000 12345</p>
+          <p>Email: sales@clearpiece.in</p>
+          <p>Phone: +91 98765 43210</p>
         </div>
         <div>
           <h4>Useful Links</h4>

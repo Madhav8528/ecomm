@@ -656,7 +656,7 @@ export function CheckoutContent() {
               setError(err instanceof Error ? err.message : "Payment verification failed.");
             }
           },
-          theme: { color: "#e36a2e" },
+          theme: { color: "#0f2d5e" },
         });
 
         razorpay.open();
