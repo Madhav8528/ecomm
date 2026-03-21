@@ -1,7 +1,7 @@
 
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { formatCurrency as formatMoney } from "@/lib/format";
@@ -58,8 +58,17 @@ type Order = {
   grand_total: string | number;
   items: OrderItem[];
   shipping_address_line1: string;
+  shipping_address_line2?: string;
   shipping_city: string;
+  shipping_state?: string;
   shipping_pin: string;
+  transport_name?: string;
+  transport_contact?: string;
+  lr_number?: string;
+  estimated_delivery?: string;
+  lr_copy?: string;
+  invoice_file?: string;
+  cancellation_reason?: string;
 };
 
 type Billing = {
@@ -169,23 +178,26 @@ function formatDate(value: string) {
 }
 
 function statusClass(status: string) {
-  const value = status.toLowerCase();
-  if (value === "pending_payment") return "processing";
-  if (value === "confirmed") return "processing";
-  if (value === "paid") return "paid";
-  if (value === "pending") return "processing";
-  if (value === "processing") return "processing";
-  if (value === "shipped") return "shipped";
-  if (value === "delivered") return "delivered";
-  if (value === "cancelled" || value === "canceled") return "cancelled";
+  const s = status.toLowerCase().replace(/\s+/g, "_");
+  if (s === "order_received") return "processing";
+  if (s === "confirmed") return "processing";
+  if (s === "shipped") return "shipped";
+  if (s === "delivered") return "delivered";
+  if (s === "cancelled") return "cancelled";
   return "processing";
 }
 
 function orderStatusLabel(status: string) {
-  if (!status) return "Processing";
-  if (status === "pending_payment") return "Pending Payment";
-  if (status === "confirmed") return "Confirmed";
-  return status.charAt(0).toUpperCase() + status.slice(1);
+  if (!status) return "Order Received";
+  const s = status.toLowerCase().replace(/\s+/g, "_");
+  const map: Record<string, string> = {
+    order_received: "Order Received",
+    confirmed: "Confirmed",
+    shipped: "Dispatched",
+    delivered: "Delivered",
+    cancelled: "Cancelled",
+  };
+  return map[s] ?? (status.charAt(0).toUpperCase() + status.slice(1));
 }
 
 async function apiGet<T>(url: string): Promise<T> {
@@ -273,7 +285,6 @@ export function AccountDashboard() {
 
   const [orderFilter, setOrderFilter] = useState("all");
   const [orderSearch, setOrderSearch] = useState("");
-  const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
 
   const [showLogout, setShowLogout] = useState(false);
 
@@ -433,7 +444,7 @@ export function AccountDashboard() {
     const search = orderSearch.trim().toLowerCase();
     const safeOrders = Array.isArray(orders) ? orders : [];
     return safeOrders.filter((order) => {
-      const status = order.status?.toLowerCase() ?? "";
+      const status = order.status?.toLowerCase().replace(/\s+/g, "_") ?? "";
       const matchesFilter = orderFilter === "all" || status === orderFilter;
       const matchesSearch =
         !search ||
@@ -447,7 +458,7 @@ export function AccountDashboard() {
     const safeOrders = Array.isArray(orders) ? orders : [];
     const counts: Record<string, number> = { all: safeOrders.length };
     safeOrders.forEach((order) => {
-      const status = order.status?.toLowerCase() ?? "processing";
+      const status = order.status?.toLowerCase().replace(/\s+/g, "_") ?? "order_received";
       counts[status] = (counts[status] ?? 0) + 1;
     });
     return counts;
@@ -886,11 +897,10 @@ export function AccountDashboard() {
                         {[
                           { key: "all", label: `All (${orderCounts.all ?? 0})` },
                           {
-                            key: "pending_payment",
-                            label: `Pending Payment (${orderCounts.pending_payment ?? 0})`,
+                            key: "order_received",
+                            label: `Order Received (${orderCounts.order_received ?? 0})`,
                           },
                           { key: "confirmed", label: `Confirmed (${orderCounts.confirmed ?? 0})` },
-                          { key: "processing", label: `Processing (${orderCounts.processing ?? 0})` },
                           { key: "shipped", label: `Shipped (${orderCounts.shipped ?? 0})` },
                           { key: "delivered", label: `Delivered (${orderCounts.delivered ?? 0})` },
                           { key: "cancelled", label: `Cancelled (${orderCounts.cancelled ?? 0})` },
@@ -928,73 +938,35 @@ export function AccountDashboard() {
                         </thead>
                         <tbody>
                           {filteredOrders.map((order) => (
-                            <Fragment key={order.order_id}>
-                              <tr key={order.order_id}>
-                                <td>{order.order_id}</td>
-                                <td>{formatDate(order.created_at)}</td>
-                                <td>
-                                  {order.items
-                                    .map((item) => `${item.product_name} x${item.quantity}`)
-                                    .join(", ")}
-                                </td>
-                                <td>{formatCurrency(order.grand_total)}</td>
-                                <td>
-                                  <span
-                                    className={`badge status ${
-                                      order.payment_status?.toLowerCase() === "paid"
-                                        ? "paid"
-                                        : "processing"
-                                    }`}
-                                  >
-                                    {order.payment_status?.toLowerCase() === "paid" ? "Paid" : "Pending"}
-                                  </span>
-                                </td>
-                                <td>
-                                  <span className={`badge status ${statusClass(order.status)}`}>
-                                    {orderStatusLabel(order.status)}
-                                  </span>
-                                </td>
-                                <td>
-                                  <button
-                                    type="button"
-                                    className="btn-link"
-                                    onClick={() =>
-                                      setExpandedOrder((prev) =>
-                                        prev === order.order_id ? null : order.order_id,
-                                      )
-                                    }
-                                  >
-                                    View Details
-                                  </button>
-                                </td>
-                              </tr>
-                              {expandedOrder === order.order_id ? (
-                                <tr className="order-details-row" key={`${order.order_id}-details`}>
-                                  <td colSpan={7}>
-                                    <div className="order-details">
-                                      <div>
-                                        <h4>Items</h4>
-                                        {order.items.map((item, index) => (
-                                          <p key={`${order.order_id}-${index}`}>
-                                            {item.product_name} x{item.quantity} - {formatCurrency(item.line_total)}
-                                          </p>
-                                        ))}
-                                      </div>
-                                      <div>
-                                        <h4>Shipping Address</h4>
-                                        <p>{order.shipping_address_line1}</p>
-                                        <p>
-                                          {order.shipping_city}, {order.shipping_pin}
-                                        </p>
-                                        <button type="button" className="btn-outline">
-                                          Download Invoice
-                                        </button>
-                                      </div>
-                                    </div>
-                                  </td>
-                                </tr>
-                              ) : null}
-                            </Fragment>
+                            <tr key={order.order_id}>
+                              <td>{order.order_id}</td>
+                              <td>{formatDate(order.created_at)}</td>
+                              <td>
+                                {order.items
+                                  .map((item) => `${item.product_name} x${item.quantity}`)
+                                  .join(", ")}
+                              </td>
+                              <td>{formatCurrency(order.grand_total)}</td>
+                              <td>
+                                <span
+                                  className={`badge status ${
+                                    order.payment_status?.toLowerCase() === "paid" ? "paid" : "processing"
+                                  }`}
+                                >
+                                  {order.payment_status?.toLowerCase() === "paid" ? "Paid" : "Pending"}
+                                </span>
+                              </td>
+                              <td>
+                                <span className={`badge status ${statusClass(order.status)}`}>
+                                  {orderStatusLabel(order.status)}
+                                </span>
+                              </td>
+                              <td>
+                                <a href={`/account/orders/${order.order_id}`} className="btn-link">
+                                  View Details
+                                </a>
+                              </td>
+                            </tr>
                           ))}
                         </tbody>
                       </table>

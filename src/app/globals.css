@@ -20,6 +20,7 @@
   --container: 1220px;
 }
 
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -39,7 +40,7 @@ body {
 
 body {
   color: var(--text);
-  background: #ffffff;
+  background: var(--bg);
   font-family: var(--font-body), "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   line-height: 1.65;
   -webkit-font-smoothing: antialiased;
@@ -779,6 +780,7 @@ img {
   opacity: 0.75;
   cursor: not-allowed;
 }
+
 
 .grid {
   display: grid;
@@ -2100,6 +2102,26 @@ img {
   gap: 1.25rem;
   max-width: 860px;
   margin: 0 auto;
+}
+
+.order-confirm-back {
+  margin-bottom: 0.75rem;
+}
+
+.order-confirm-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.order-confirm-back-link svg {
+  width: 14px;
+  height: 14px;
 }
 
 .order-confirm-loading {

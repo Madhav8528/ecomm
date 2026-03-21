@@ -59,7 +59,7 @@ type OrderApi = {
   id: number;
   order_number: string;
   customer_email: string;
-  status: "pending_payment" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled";
+  status: "order_received" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled";
   total: string;
   created_at: string;
   items: OrderItemApi[];

@@ -48,7 +48,7 @@ export type Product = {
 export type Order = {
   id: string;
   date: string;
-  status: "pending_payment" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled";
+  status: "order_received" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled";
   amount: number;
   itemCount: number;
   cancellationReason?: string;

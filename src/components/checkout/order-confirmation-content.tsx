@@ -13,19 +13,13 @@ type OrderItem = {
   closure_name?: string;
 };
 
-type DispatchDoc = {
-  type: "lr_copy" | "invoice" | "transport_contact";
-  label: string;
-  value: string;
-};
-
 type OrderDetail = {
   order_id: string;
   status: string;
   cancellation_reason?: string;
   created_at: string;
   confirmed_at?: string;
-  dispatched_at?: string;
+  shipped_at?: string;
   delivered_at?: string;
   payment_method: string;
   grand_total: string | number;
@@ -44,10 +38,12 @@ type OrderDetail = {
   shipping_state: string;
   shipping_pin: string;
   shipping_phone: string;
-  dispatch_docs?: DispatchDoc[];
   transport_name?: string;
+  transport_contact?: string;
   lr_number?: string;
   estimated_delivery?: string;
+  lr_copy?: string;
+  invoice_file?: string;
 };
 
 async function apiGet<T>(url: string): Promise<T> {
@@ -66,9 +62,9 @@ const STATUS_STEPS: {
   icon: ReactNode;
 }[] = [
   {
-    key: "pending_payment",
-    label: "Order Placed",
-    description: null,
+    key: "order_received",
+    label: "Order Received",
+    description: "Your order has been received. Our team will review and confirm within 1 business day.",
     icon: (
       <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8">
         <path d="M3 5h14M3 10h14M3 15h8" strokeLinecap="round" />
@@ -78,8 +74,7 @@ const STATUS_STEPS: {
   {
     key: "awaiting",
     label: "Awaiting Confirmation",
-    description:
-      "Your order is under review. Our team will confirm availability and pricing within 1 business day.",
+    description: "Our team is reviewing your order. You will be notified once it is confirmed.",
     icon: (
       <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8">
         <circle cx="10" cy="10" r="7" />
@@ -101,7 +96,7 @@ const STATUS_STEPS: {
   {
     key: "shipped",
     label: "Dispatched",
-    description: "Your order is on its way. Transport details and documents are available below.",
+    description: "Your order has been dispatched. Transport details and documents are available below.",
     icon: (
       <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8">
         <path d="M1 8h10v7H1zM11 10h4l3 3v2h-7v-5z" strokeLinejoin="round" />
@@ -113,7 +108,7 @@ const STATUS_STEPS: {
   {
     key: "delivered",
     label: "Delivered",
-    description: "Order has been successfully delivered and confirmed.",
+    description: "Order successfully delivered and confirmed.",
     icon: (
       <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8">
         <path d="M10 2l2.4 5H18l-4.2 3.1 1.6 5L10 12.3 4.6 15.1l1.6-5L2 7h5.6z" strokeLinejoin="round" />
@@ -125,7 +120,7 @@ const STATUS_STEPS: {
 function getStepIndex(status: string): number {
   const s = status.toLowerCase().replace(/\s+/g, "_");
   const map: Record<string, number> = {
-    pending_payment: 1,
+    order_received: 1,
     confirmed: 2,
     processing: 2,
     shipped: 3,
@@ -137,10 +132,10 @@ function getStepIndex(status: string): number {
 
 function getStepTimestamp(order: OrderDetail, key: string): string | null {
   const map: Record<string, string | undefined> = {
-    pending_payment: order.created_at,
+    order_received: order.created_at,
     awaiting: order.created_at,
     confirmed: order.confirmed_at,
-    shipped: order.dispatched_at,
+    shipped: order.shipped_at,
     delivered: order.delivered_at,
   };
   const val = map[key];
@@ -176,6 +171,7 @@ export function OrderConfirmationContent({ orderId }: { orderId: string }) {
       };
     }
     apiGet<OrderDetail>(`/api/checkout/order-confirmation/${resolvedOrderId}`)
+      .catch(() => apiGet<OrderDetail>(`/api/account/orders/${resolvedOrderId}/detail`))
       .then((data) => {
         if (isMounted) setOrder(data);
       })
@@ -215,6 +211,14 @@ export function OrderConfirmationContent({ orderId }: { orderId: string }) {
 
   return (
     <div className="order-confirm-page">
+      <div className="order-confirm-back">
+        <a href="/account" className="order-confirm-back-link">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M10 3L5 8l5 5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Back to My Orders
+        </a>
+      </div>
       <div className={`order-confirm-hero ${isCancelled ? "cancelled" : ""}`}>
         <div className="order-confirm-hero-icon">
           {isCancelled ? (
@@ -317,6 +321,12 @@ export function OrderConfirmationContent({ orderId }: { orderId: string }) {
                 <strong>{order.transport_name}</strong>
               </div>
             )}
+            {order.transport_contact && (
+              <div className="order-dispatch-meta-item">
+                <span className="order-dispatch-meta-label">Transport Contact</span>
+                <strong>{order.transport_contact}</strong>
+              </div>
+            )}
             {order.lr_number && (
               <div className="order-dispatch-meta-item">
                 <span className="order-dispatch-meta-label">LR Number</span>
@@ -325,52 +335,66 @@ export function OrderConfirmationContent({ orderId }: { orderId: string }) {
             )}
             {order.estimated_delivery && (
               <div className="order-dispatch-meta-item">
-                <span className="order-dispatch-meta-label">Est. Delivery Window</span>
+                <span className="order-dispatch-meta-label">Est. Delivery</span>
                 <strong>{order.estimated_delivery}</strong>
               </div>
             )}
           </div>
 
-          {order.dispatch_docs && order.dispatch_docs.length > 0 && (
+          {(order.lr_copy || order.invoice_file) && (
             <div className="order-dispatch-docs">
-              <p className="order-dispatch-docs-heading">Documents & Contacts</p>
+              <p className="order-dispatch-docs-heading">Documents</p>
               <div className="order-dispatch-docs-grid">
-                {order.dispatch_docs.map((doc, i) => (
-                  <div key={i} className="order-dispatch-doc">
+                {order.lr_copy && (
+                  <div className="order-dispatch-doc">
                     <div className="order-dispatch-doc-icon">
-                      {doc.type === "transport_contact" ? (
-                        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7">
-                          <path d="M2 5.5A1.5 1.5 0 013.5 4h13A1.5 1.5 0 0118 5.5v9a1.5 1.5 0 01-1.5 1.5h-13A1.5 1.5 0 012 14.5v-9z" />
-                          <path d="M7 10a3 3 0 106 0 3 3 0 00-6 0z" />
-                        </svg>
-                      ) : (
-                        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7">
-                          <path d="M4 4h8l4 4v8H4V4z" strokeLinejoin="round" />
-                          <path d="M12 4v4h4M7 10h6M7 13h4" strokeLinecap="round" />
-                        </svg>
-                      )}
+                      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7">
+                        <path d="M4 4h8l4 4v8H4V4z" strokeLinejoin="round" />
+                        <path d="M12 4v4h4M7 10h6M7 13h4" strokeLinecap="round" />
+                      </svg>
                     </div>
                     <div className="order-dispatch-doc-info">
-                      <span className="order-dispatch-doc-label">{doc.label}</span>
-                      {doc.type === "transport_contact" ? (
-                        <span className="order-dispatch-doc-value">{doc.value}</span>
-                      ) : (
-                        <a
-                          href={doc.value}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="order-dispatch-doc-link"
-                        >
-                          Download
-                          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M8 3v7M5 7l3 3 3-3" strokeLinecap="round" strokeLinejoin="round" />
-                            <path d="M3 13h10" strokeLinecap="round" />
-                          </svg>
-                        </a>
-                      )}
+                      <span className="order-dispatch-doc-label">LR Copy</span>
+                      <a
+                        href={order.lr_copy}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="order-dispatch-doc-link"
+                      >
+                        Download
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M8 3v7M5 7l3 3 3-3" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M3 13h10" strokeLinecap="round" />
+                        </svg>
+                      </a>
                     </div>
                   </div>
-                ))}
+                )}
+                {order.invoice_file && (
+                  <div className="order-dispatch-doc">
+                    <div className="order-dispatch-doc-icon">
+                      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7">
+                        <path d="M4 4h8l4 4v8H4V4z" strokeLinejoin="round" />
+                        <path d="M12 4v4h4M7 10h6M7 13h4" strokeLinecap="round" />
+                      </svg>
+                    </div>
+                    <div className="order-dispatch-doc-info">
+                      <span className="order-dispatch-doc-label">Invoice / Bill</span>
+                      <a
+                        href={order.invoice_file}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="order-dispatch-doc-link"
+                      >
+                        Download
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M8 3v7M5 7l3 3 3-3" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M3 13h10" strokeLinecap="round" />
+                        </svg>
+                      </a>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
