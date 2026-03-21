@@ -48,7 +48,8 @@ export type Product = {
 export type Order = {
   id: string;
   date: string;
-  status: "Processing" | "Shipped" | "Delivered";
+  status: "pending_payment" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled";
   amount: number;
   itemCount: number;
+  cancellationReason?: string;
 };

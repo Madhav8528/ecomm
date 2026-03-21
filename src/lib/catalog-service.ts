@@ -59,7 +59,7 @@ type OrderApi = {
   id: number;
   order_number: string;
   customer_email: string;
-  status: "pending" | "processing" | "shipped" | "delivered" | "cancelled";
+  status: "pending_payment" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled";
   total: string;
   created_at: string;
   items: OrderItemApi[];
@@ -152,9 +152,7 @@ function mapProduct(product: ProductApi): Product {
 }
 
 function mapOrderStatus(status: OrderApi["status"]): Order["status"] {
-  if (status === "delivered") return "Delivered";
-  if (status === "shipped") return "Shipped";
-  return "Processing";
+  return status;
 }
 
 export async function getCategoriesSafe(): Promise<Category[]> {
@@ -228,6 +226,7 @@ export async function getOrdersByEmailSafe(email: string): Promise<Order[]> {
     status: mapOrderStatus(order.status),
     amount: Number(order.total),
     itemCount: order.items.reduce((sum, item) => sum + item.quantity, 0),
+    cancellationReason: (order as { cancellation_reason?: string }).cancellation_reason ?? undefined,
   }));
 
   return orders.length ? orders : [];

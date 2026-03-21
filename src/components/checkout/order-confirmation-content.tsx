@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { formatCurrency } from "@/lib/format";
@@ -12,10 +13,20 @@ type OrderItem = {
   closure_name?: string;
 };
 
+type DispatchDoc = {
+  type: "lr_copy" | "invoice" | "transport_contact";
+  label: string;
+  value: string;
+};
+
 type OrderDetail = {
   order_id: string;
   status: string;
+  cancellation_reason?: string;
   created_at: string;
+  confirmed_at?: string;
+  dispatched_at?: string;
+  delivered_at?: string;
   payment_method: string;
   grand_total: string | number;
   items: OrderItem[];
@@ -33,6 +44,10 @@ type OrderDetail = {
   shipping_state: string;
   shipping_pin: string;
   shipping_phone: string;
+  dispatch_docs?: DispatchDoc[];
+  transport_name?: string;
+  lr_number?: string;
+  estimated_delivery?: string;
 };
 
 async function apiGet<T>(url: string): Promise<T> {
@@ -44,12 +59,105 @@ async function apiGet<T>(url: string): Promise<T> {
   return (await response.json()) as T;
 }
 
+const STATUS_STEPS: {
+  key: string;
+  label: string;
+  description: string | null;
+  icon: ReactNode;
+}[] = [
+  {
+    key: "pending_payment",
+    label: "Order Placed",
+    description: null,
+    icon: (
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M3 5h14M3 10h14M3 15h8" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
+    key: "awaiting",
+    label: "Awaiting Confirmation",
+    description:
+      "Your order is under review. Our team will confirm availability and pricing within 1 business day.",
+    icon: (
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <circle cx="10" cy="10" r="7" />
+        <path d="M10 6v4l2.5 2.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+  {
+    key: "confirmed",
+    label: "Order Confirmed",
+    description:
+      "Confirmed by our team. Stock is reserved and your order is being packed and quality checked before dispatch.",
+    icon: (
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M4 10l4 4 8-8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+  {
+    key: "shipped",
+    label: "Dispatched",
+    description: "Your order is on its way. Transport details and documents are available below.",
+    icon: (
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M1 8h10v7H1zM11 10h4l3 3v2h-7v-5z" strokeLinejoin="round" />
+        <circle cx="4.5" cy="15.5" r="1.5" />
+        <circle cx="14.5" cy="15.5" r="1.5" />
+      </svg>
+    ),
+  },
+  {
+    key: "delivered",
+    label: "Delivered",
+    description: "Order has been successfully delivered and confirmed.",
+    icon: (
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M10 2l2.4 5H18l-4.2 3.1 1.6 5L10 12.3 4.6 15.1l1.6-5L2 7h5.6z" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+];
+
+function getStepIndex(status: string): number {
+  const s = status.toLowerCase().replace(/\s+/g, "_");
+  const map: Record<string, number> = {
+    pending_payment: 1,
+    confirmed: 2,
+    processing: 2,
+    shipped: 3,
+    delivered: 4,
+    cancelled: -1,
+  };
+  return map[s] ?? 1;
+}
+
+function getStepTimestamp(order: OrderDetail, key: string): string | null {
+  const map: Record<string, string | undefined> = {
+    pending_payment: order.created_at,
+    awaiting: order.created_at,
+    confirmed: order.confirmed_at,
+    shipped: order.dispatched_at,
+    delivered: order.delivered_at,
+  };
+  const val = map[key];
+  if (!val) return null;
+  return new Date(val).toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export function OrderConfirmationContent({ orderId }: { orderId: string }) {
   const params = useParams<{ orderId?: string | string[] }>();
   const resolvedOrderId = useMemo(() => {
-    if (orderId && orderId !== "undefined" && orderId !== "null") {
-      return orderId;
-    }
+    if (orderId && orderId !== "undefined" && orderId !== "null") return orderId;
     const fallback = params?.orderId;
     if (typeof fallback === "string") return fallback;
     if (Array.isArray(fallback)) return fallback[0] ?? "";
@@ -61,24 +169,19 @@ export function OrderConfirmationContent({ orderId }: { orderId: string }) {
 
   useEffect(() => {
     let isMounted = true;
-
     if (!resolvedOrderId) {
       setError("Order ID is missing. Please check the link or view your orders.");
       return () => {
         isMounted = false;
       };
     }
-
     apiGet<OrderDetail>(`/api/checkout/order-confirmation/${resolvedOrderId}`)
       .then((data) => {
-        if (!isMounted) return;
-        setOrder(data);
+        if (isMounted) setOrder(data);
       })
       .catch((err) => {
-        if (!isMounted) return;
-        setError(err instanceof Error ? err.message : "Unable to load order.");
+        if (isMounted) setError(err instanceof Error ? err.message : "Unable to load order.");
       });
-
     return () => {
       isMounted = false;
     };
@@ -97,93 +200,266 @@ export function OrderConfirmationContent({ orderId }: { orderId: string }) {
 
   if (!order) {
     return (
-      <div className="card">
-        <p className="muted">Loading order confirmation...</p>
+      <div className="order-confirm-loading">
+        <div className="order-confirm-spinner" />
+        <p className="muted">Loading your order details...</p>
       </div>
     );
   }
 
-  const orderDateTime = order.created_at
-    ? new Date(order.created_at).toLocaleString("en-IN", {
-        year: "numeric",
-        month: "short",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : "";
-
-  const isCancelled = order.status === "cancelled";
+  const normalisedStatus = order.status.toLowerCase().replace(/\s+/g, "_");
+  const isCancelled = normalisedStatus === "cancelled";
+  const activeStep = getStepIndex(order.status);
+  const isDispatched = normalisedStatus === "shipped" || normalisedStatus === "delivered";
+  const supportSubject = encodeURIComponent(`Order Query: #${order.order_id}`);
 
   return (
-    <div className="card">
-      <div className="success-box">
-        <div className="success-check">✓</div>
-        <h2>{isCancelled ? "Order Cancelled" : "Order Placed Successfully!"}</h2>
-        <p className="muted">
-          Order ID <strong>{order.order_id}</strong>
-        </p>
-        <p className="muted">Order Date: {orderDateTime}</p>
-        {isCancelled ? (
-          <p className="muted">
-            Some items were unavailable at the time of confirmation. Please review your cart and try again.
+    <div className="order-confirm-page">
+      <div className={`order-confirm-hero ${isCancelled ? "cancelled" : ""}`}>
+        <div className="order-confirm-hero-icon">
+          {isCancelled ? (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M15 9l-6 6M9 9l6 6" strokeLinecap="round" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <path d="M5 12l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          )}
+        </div>
+        <div className="order-confirm-hero-body">
+          <h2>{isCancelled ? "Order Cancelled" : "Order Placed Successfully!"}</h2>
+          <p className="order-confirm-hero-sub">
+            Order <strong>#{order.order_id}</strong> -
+            {new Date(order.created_at).toLocaleString("en-IN", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
           </p>
-        ) : null}
+          {isCancelled ? (
+            order.cancellation_reason ? (
+              <div className="order-cancel-reason">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <circle cx="8" cy="8" r="6" />
+                  <path d="M8 5v3M8 11v.5" strokeLinecap="round" />
+                </svg>
+                <div>
+                  <span className="order-cancel-reason-label">Reason for cancellation</span>
+                  <p className="order-cancel-reason-text">{order.cancellation_reason}</p>
+                </div>
+              </div>
+            ) : (
+              <p className="order-confirm-hero-note" style={{ color: "#c0392b" }}>
+                This order was cancelled. Please contact support if you have questions.
+              </p>
+            )
+          ) : (
+            <p className="order-confirm-hero-note">
+              Our team will review and confirm your order within 1 business day. You'll receive updates as your order progresses.
+            </p>
+          )}
+        </div>
       </div>
 
-      <div style={{ marginTop: "1rem" }}>
-        <h3>Items Ordered</h3>
-        {order.items.map((item, index) => (
-          <div key={`${order.order_id}-${index}`} className="summary-row">
-            <span>
-              {item.product_name} x{item.quantity}
-              {item.closure_name ? ` (Closure: ${item.closure_name})` : ""}
-            </span>
-            <span>{formatCurrency(item.line_total)}</span>
+      {!isCancelled && (
+        <div className="card order-stepper-card">
+          <p className="order-section-eyebrow">Order Status</p>
+          <div className="order-stepper">
+            {STATUS_STEPS.map((step, index) => {
+              const isDone = index < activeStep;
+              const isActive = index === activeStep;
+              const isPending = index > activeStep;
+              const timestamp = getStepTimestamp(order, step.key);
+              return (
+                <div
+                  key={step.key}
+                  className={`order-step ${isDone ? "done" : ""} ${isActive ? "active" : ""} ${isPending ? "pending" : ""}`}
+                >
+                  {index < STATUS_STEPS.length - 1 && (
+                    <div className={`order-step-line ${isDone ? "done" : ""}`} />
+                  )}
+                  <div className="order-step-circle">
+                    {isDone ? (
+                      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.4">
+                        <path d="M3 8l3 3 7-7" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    ) : (
+                      step.icon
+                    )}
+                  </div>
+                  <div className="order-step-label">
+                    <span className="order-step-name">{step.label}</span>
+                    {(isDone || isActive) && timestamp && (
+                      <span className="order-step-time">{timestamp}</span>
+                    )}
+                    {isActive && step.description && (
+                      <span className="order-step-desc">{step.description}</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        ))}
+        </div>
+      )}
+
+      {isDispatched && (
+        <div className="card order-dispatch-card">
+          <p className="order-section-eyebrow">Dispatch Details</p>
+          <div className="order-dispatch-meta">
+            {order.transport_name && (
+              <div className="order-dispatch-meta-item">
+                <span className="order-dispatch-meta-label">Transport Company</span>
+                <strong>{order.transport_name}</strong>
+              </div>
+            )}
+            {order.lr_number && (
+              <div className="order-dispatch-meta-item">
+                <span className="order-dispatch-meta-label">LR Number</span>
+                <strong>{order.lr_number}</strong>
+              </div>
+            )}
+            {order.estimated_delivery && (
+              <div className="order-dispatch-meta-item">
+                <span className="order-dispatch-meta-label">Est. Delivery Window</span>
+                <strong>{order.estimated_delivery}</strong>
+              </div>
+            )}
+          </div>
+
+          {order.dispatch_docs && order.dispatch_docs.length > 0 && (
+            <div className="order-dispatch-docs">
+              <p className="order-dispatch-docs-heading">Documents & Contacts</p>
+              <div className="order-dispatch-docs-grid">
+                {order.dispatch_docs.map((doc, i) => (
+                  <div key={i} className="order-dispatch-doc">
+                    <div className="order-dispatch-doc-icon">
+                      {doc.type === "transport_contact" ? (
+                        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7">
+                          <path d="M2 5.5A1.5 1.5 0 013.5 4h13A1.5 1.5 0 0118 5.5v9a1.5 1.5 0 01-1.5 1.5h-13A1.5 1.5 0 012 14.5v-9z" />
+                          <path d="M7 10a3 3 0 106 0 3 3 0 00-6 0z" />
+                        </svg>
+                      ) : (
+                        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7">
+                          <path d="M4 4h8l4 4v8H4V4z" strokeLinejoin="round" />
+                          <path d="M12 4v4h4M7 10h6M7 13h4" strokeLinecap="round" />
+                        </svg>
+                      )}
+                    </div>
+                    <div className="order-dispatch-doc-info">
+                      <span className="order-dispatch-doc-label">{doc.label}</span>
+                      {doc.type === "transport_contact" ? (
+                        <span className="order-dispatch-doc-value">{doc.value}</span>
+                      ) : (
+                        <a
+                          href={doc.value}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="order-dispatch-doc-link"
+                        >
+                          Download
+                          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M8 3v7M5 7l3 3 3-3" strokeLinecap="round" strokeLinejoin="round" />
+                            <path d="M3 13h10" strokeLinecap="round" />
+                          </svg>
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="card order-items-card">
+        <p className="order-section-eyebrow">Items Ordered</p>
+        <div className="order-items-list">
+          {order.items.map((item, index) => (
+            <div key={`${order.order_id}-${index}`} className="order-item-row">
+              <span className="order-item-name">
+                {item.product_name}
+                {item.closure_name ? (
+                  <span className="order-item-closure"> + {item.closure_name} closure</span>
+                ) : null}
+              </span>
+              <span className="order-item-qty">x{item.quantity}</span>
+              <span className="order-item-total">{formatCurrency(item.line_total)}</span>
+            </div>
+          ))}
+        </div>
+        <div className="order-items-footer">
+          <div className="order-total-row">
+            <span>Payment Method</span>
+            <strong>{order.payment_method}</strong>
+          </div>
+          <div className="order-total-row grand">
+            <span>Grand Total</span>
+            <strong className="order-grand-total">{formatCurrency(order.grand_total)}</strong>
+          </div>
+        </div>
       </div>
 
-      <div className="split-layout" style={{ marginTop: "1rem" }}>
-        <div className="card">
-          <h4>Billing Address</h4>
-          <p>{order.billing_name}</p>
+      <div className="order-address-grid">
+        <div className="card order-address-card">
+          <p className="order-section-eyebrow">Billing Address</p>
+          <p className="order-address-name">{order.billing_name}</p>
           <p>{order.billing_address_line1}</p>
-          {order.billing_address_line2 ? <p>{order.billing_address_line2}</p> : null}
+          {order.billing_address_line2 && <p>{order.billing_address_line2}</p>}
           <p>
-            {order.billing_city}, {order.billing_state} {order.billing_pin}
+            {order.billing_city}, {order.billing_state} - {order.billing_pin}
           </p>
-          <p>{order.billing_phone}</p>
+          <p className="order-address-phone">{order.billing_phone}</p>
         </div>
-        <div className="card">
-          <h4>Shipping Address</h4>
-          <p>{order.shipping_name}</p>
+        <div className="card order-address-card">
+          <p className="order-section-eyebrow">Shipping Address</p>
+          <p className="order-address-name">{order.shipping_name}</p>
           <p>{order.shipping_address_line1}</p>
-          {order.shipping_address_line2 ? <p>{order.shipping_address_line2}</p> : null}
+          {order.shipping_address_line2 && <p>{order.shipping_address_line2}</p>}
           <p>
-            {order.shipping_city}, {order.shipping_state} {order.shipping_pin}
+            {order.shipping_city}, {order.shipping_state} - {order.shipping_pin}
           </p>
-          <p>{order.shipping_phone}</p>
+          <p className="order-address-phone">{order.shipping_phone}</p>
         </div>
       </div>
 
-      <div style={{ marginTop: "1rem" }}>
-        <p>
-          Payment Method: <strong>{order.payment_method}</strong>
-        </p>
-        <p>
-          Grand Total: <strong>{formatCurrency(order.grand_total)}</strong>
-        </p>
-        <p className="muted">Your order will be dispatched within 24-48 hours.</p>
+      <div className="order-support-bar">
+        <div className="order-support-text">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7">
+            <circle cx="10" cy="10" r="8" />
+            <path d="M10 6v5M10 14v.5" strokeLinecap="round" />
+          </svg>
+          <div>
+            <strong>Need help with this order?</strong>
+            <p>Our team is available Mon-Sat, 10am-6pm IST</p>
+          </div>
+        </div>
+        <div className="order-support-actions">
+          <a
+            href={`mailto:sales@clearpiece.com?subject=${supportSubject}`}
+            className="btn order-support-btn"
+          >
+            Email Support
+          </a>
+          <a
+            href="https://wa.me/919000012345"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-primary order-support-btn"
+          >
+            WhatsApp Us
+          </a>
+        </div>
       </div>
 
-      <div style={{ display: "flex", gap: "0.8rem", marginTop: "1rem", flexWrap: "wrap" }}>
-        <Link href="/products" className="btn btn-primary">
-          Continue Shopping
-        </Link>
-        <Link href="/account" className="btn">
-          View My Orders
-        </Link>
+      <div className="order-confirm-actions">
+        <Link href="/products" className="btn btn-primary">Continue Shopping</Link>
+        <Link href="/account" className="btn">View All Orders</Link>
       </div>
     </div>
   );
