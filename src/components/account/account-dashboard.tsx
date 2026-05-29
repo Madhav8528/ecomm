@@ -1,8 +1,8 @@
 
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { formatCurrency as formatMoney } from "@/lib/format";
 
@@ -54,7 +54,10 @@ type Order = {
   order_id: string;
   created_at: string;
   status: string;
+  payment_type?: "advance" | "full" | null;
   payment_status?: string;
+  paid_amount?: string | number;
+  remaining_amount?: string | number;
   grand_total: string | number;
   items: OrderItem[];
   shipping_address_line1: string;
@@ -152,11 +155,16 @@ const INDIA_STATES = [
 ];
 
 const BILLING_DRAFT_KEY = "guru-billing-draft-v1";
+const PHONE_VERIFY_FLOW_KEY = "guru-phone-verify-flow-v1";
 
 const GST_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
 
 function normalizeGst(value: string) {
   return value.replace(/\s+/g, "").toUpperCase();
+}
+
+function normalizePhone(value: string) {
+  return value.replace(/\D/g, "").slice(0, 10);
 }
 
 function formatCurrency(value: string | number | undefined) {
@@ -181,6 +189,7 @@ function statusClass(status: string) {
   const s = status.toLowerCase().replace(/\s+/g, "_");
   if (s === "order_received") return "processing";
   if (s === "confirmed") return "processing";
+  if (s === "ready_to_dispatch") return "processing";
   if (s === "shipped") return "shipped";
   if (s === "delivered") return "delivered";
   if (s === "cancelled") return "cancelled";
@@ -193,11 +202,28 @@ function orderStatusLabel(status: string) {
   const map: Record<string, string> = {
     order_received: "Order Received",
     confirmed: "Confirmed",
+    ready_to_dispatch: "Ready To Dispatch",
     shipped: "Dispatched",
     delivered: "Delivered",
     cancelled: "Cancelled",
   };
   return map[s] ?? (status.charAt(0).toUpperCase() + status.slice(1));
+}
+
+function paymentStatusLabel(status?: string) {
+  const normalized = (status ?? "").toLowerCase();
+  if (normalized === "advance_paid") return "Advance Paid";
+  if (normalized === "paid_in_full" || normalized === "paid") return "Paid In Full";
+  if (normalized === "failed") return "Failed";
+  return "Pending";
+}
+
+function paymentStatusClass(status?: string) {
+  const normalized = (status ?? "").toLowerCase();
+  if (normalized === "paid_in_full" || normalized === "paid") return "paid";
+  if (normalized === "advance_paid") return "processing";
+  if (normalized === "failed") return "cancelled";
+  return "processing";
 }
 
 async function apiGet<T>(url: string): Promise<T> {
@@ -224,6 +250,7 @@ async function apiSend<T>(url: string, method: string, body?: Record<string, unk
 
 export function AccountDashboard() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { logout } = useAuth();
   const [active, setActive] = useState<MenuId>("dashboard");
   const [loading, setLoading] = useState(true);
@@ -287,6 +314,39 @@ export function AccountDashboard() {
   const [orderSearch, setOrderSearch] = useState("");
 
   const [showLogout, setShowLogout] = useState(false);
+  const [phoneModalOpen, setPhoneModalOpen] = useState(false);
+  const [phoneModalOtpSent, setPhoneModalOtpSent] = useState(false);
+  const [phoneModalPhone, setPhoneModalPhone] = useState("");
+  const [phoneModalOtp, setPhoneModalOtp] = useState("");
+  const [phoneModalLoading, setPhoneModalLoading] = useState(false);
+  const [phoneModalMessage, setPhoneModalMessage] = useState("");
+  const [forcePhoneVerificationFlow, setForcePhoneVerificationFlow] = useState(false);
+  const [maskUnverifiedPhone, setMaskUnverifiedPhone] = useState(false);
+
+  const clearPhoneVerificationQuery = useCallback(() => {
+    if (searchParams.get("verify_phone") === "1" || searchParams.get("source") === "google") {
+      router.replace("/account");
+    }
+  }, [router, searchParams]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.sessionStorage.getItem(PHONE_VERIFY_FLOW_KEY) === "1") {
+      setMaskUnverifiedPhone(true);
+    }
+    const shouldOpen =
+      searchParams.get("verify_phone") === "1" && searchParams.get("source") === "google";
+    if (!shouldOpen) return;
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem(PHONE_VERIFY_FLOW_KEY, "1");
+    }
+    setForcePhoneVerificationFlow(true);
+    setPhoneModalOpen(true);
+    setPhoneModalOtpSent(false);
+    setPhoneModalOtp("");
+    setPhoneModalMessage("");
+    setActive("dashboard");
+    setMaskUnverifiedPhone(true);
+  }, [searchParams]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -317,11 +377,20 @@ export function AccountDashboard() {
       try {
         const data = await apiGet<Profile>("/api/account/profile/");
         if (!isMounted) return;
-        setProfile(data);
+        const hidePhone = (forcePhoneVerificationFlow || maskUnverifiedPhone) && !data.phone_verified;
+        const shownPhone = hidePhone ? "" : data.phone ?? "";
+        setProfile({ ...data, phone: shownPhone });
         setProfileForm({
           full_name: data.full_name ?? "",
-          phone: data.phone ?? "",
+          phone: shownPhone,
         });
+        setPhoneModalPhone(shownPhone);
+        if (data.phone_verified && maskUnverifiedPhone) {
+          setMaskUnverifiedPhone(false);
+          if (typeof window !== "undefined") {
+            window.sessionStorage.removeItem(PHONE_VERIFY_FLOW_KEY);
+          }
+        }
       } catch (err) {
         if (!isMounted) return;
         setError(err instanceof Error ? err.message : "Unable to load profile.");
@@ -333,7 +402,7 @@ export function AccountDashboard() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [forcePhoneVerificationFlow, maskUnverifiedPhone]);
 
   useEffect(() => {
     if (!profile) return;
@@ -342,6 +411,17 @@ export function AccountDashboard() {
       phone: profile.phone ?? "",
     });
   }, [profile]);
+
+  useEffect(() => {
+    if (!forcePhoneVerificationFlow || !profile?.phone_verified) return;
+    setPhoneModalOpen(false);
+    setForcePhoneVerificationFlow(false);
+    setMaskUnverifiedPhone(false);
+    if (typeof window !== "undefined") {
+      window.sessionStorage.removeItem(PHONE_VERIFY_FLOW_KEY);
+    }
+    clearPhoneVerificationQuery();
+  }, [clearPhoneVerificationQuery, forcePhoneVerificationFlow, profile?.phone_verified]);
 
   useEffect(() => {
     let isMounted = true;
@@ -359,11 +439,20 @@ export function AccountDashboard() {
         if (active === "profile" || active === "password") {
           const data = await apiGet<Profile>("/api/account/profile/");
           if (!isMounted) return;
-          setProfile(data);
+          const hidePhone = (forcePhoneVerificationFlow || maskUnverifiedPhone) && !data.phone_verified;
+          const shownPhone = hidePhone ? "" : data.phone ?? "";
+          setProfile({ ...data, phone: shownPhone });
           setProfileForm({
             full_name: data.full_name ?? "",
-            phone: data.phone ?? "",
+            phone: shownPhone,
           });
+          setPhoneModalPhone(shownPhone);
+          if (data.phone_verified && maskUnverifiedPhone) {
+            setMaskUnverifiedPhone(false);
+            if (typeof window !== "undefined") {
+              window.sessionStorage.removeItem(PHONE_VERIFY_FLOW_KEY);
+            }
+          }
         }
 
         if (active === "orders") {
@@ -423,7 +512,7 @@ export function AccountDashboard() {
     return () => {
       isMounted = false;
     };
-  }, [active]);
+  }, [active, forcePhoneVerificationFlow, maskUnverifiedPhone]);
 
   useEffect(() => {
     if (!passwordForm.new_password) {
@@ -468,14 +557,125 @@ export function AccountDashboard() {
     event.preventDefault();
     try {
       setError(null);
+      const normalizedPhone = normalizePhone(profileForm.phone);
       await apiSend("/api/account/profile/update/", "PUT", {
         full_name: profileForm.full_name,
-        phone: profileForm.phone,
+        phone: normalizedPhone,
       });
       const data = await apiGet<Profile>("/api/account/profile/");
       setProfile(data);
+      setProfileForm({
+        full_name: data.full_name ?? "",
+        phone: data.phone ?? "",
+      });
+      setPhoneModalPhone(data.phone ?? "");
+      if (data.phone_verified) {
+        setForcePhoneVerificationFlow(false);
+        setMaskUnverifiedPhone(false);
+        if (typeof window !== "undefined") {
+          window.sessionStorage.removeItem(PHONE_VERIFY_FLOW_KEY);
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to update profile.");
+    }
+  }
+
+  function openPhoneVerificationPopup() {
+    setPhoneModalOpen(true);
+    setPhoneModalMessage("");
+    setPhoneModalOtpSent(false);
+    setPhoneModalOtp("");
+    setPhoneModalPhone(normalizePhone(profileForm.phone || profile?.phone || ""));
+  }
+
+  function closePhoneVerificationPopup(skipped: boolean) {
+    setPhoneModalOpen(false);
+    setPhoneModalOtpSent(false);
+    setPhoneModalOtp("");
+    setPhoneModalMessage("");
+    setPhoneModalLoading(false);
+    clearPhoneVerificationQuery();
+
+    if (!skipped) return;
+
+    setForcePhoneVerificationFlow(false);
+    setMaskUnverifiedPhone(true);
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem(PHONE_VERIFY_FLOW_KEY, "1");
+    }
+    setActive("profile");
+    if (profile && !profile.phone_verified) {
+      setProfile({ ...profile, phone: "" });
+      setProfileForm((prev) => ({ ...prev, phone: "" }));
+      setPhoneModalPhone("");
+    }
+  }
+
+  async function handleSendPhoneOtp() {
+    try {
+      setError(null);
+      setPhoneModalMessage("");
+      const normalizedPhone = normalizePhone(phoneModalPhone);
+      if (normalizedPhone.length !== 10) {
+        setError("Enter a valid 10-digit mobile number.");
+        return;
+      }
+      setPhoneModalLoading(true);
+      await apiSend("/api/account/phone-verification/send-otp/", "POST", {
+        phone: normalizedPhone,
+      });
+      setPhoneModalPhone(normalizedPhone);
+      setPhoneModalOtpSent(true);
+      setPhoneModalMessage("OTP sent to your mobile number.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to send OTP.");
+    } finally {
+      setPhoneModalLoading(false);
+    }
+  }
+
+  async function handleVerifyPhoneOtp() {
+    try {
+      setError(null);
+      setPhoneModalMessage("");
+      const normalizedPhone = normalizePhone(phoneModalPhone);
+      const trimmedOtp = phoneModalOtp.trim();
+      if (normalizedPhone.length !== 10) {
+        setError("Enter a valid 10-digit mobile number.");
+        return;
+      }
+      if (trimmedOtp.length !== 6) {
+        setError("Enter the 6-digit OTP.");
+        return;
+      }
+      setPhoneModalLoading(true);
+      await apiSend("/api/account/phone-verification/verify-otp/", "POST", {
+        phone: normalizedPhone,
+        otp: trimmedOtp,
+      });
+      const data = await apiGet<Profile>("/api/account/profile/");
+      setProfile(data);
+      setProfileForm({
+        full_name: data.full_name ?? "",
+        phone: data.phone ?? "",
+      });
+      setPhoneModalPhone(data.phone ?? "");
+      setPhoneModalOpen(false);
+      setPhoneModalOtpSent(false);
+      setPhoneModalOtp("");
+      setPhoneModalMessage("");
+      setForcePhoneVerificationFlow(false);
+      setMaskUnverifiedPhone(false);
+      if (typeof window !== "undefined") {
+        window.sessionStorage.removeItem(PHONE_VERIFY_FLOW_KEY);
+      }
+      clearPhoneVerificationQuery();
+      setActive("dashboard");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to verify OTP.");
+    } finally {
+      setPhoneModalLoading(false);
     }
   }
 
@@ -788,21 +988,36 @@ export function AccountDashboard() {
                           value={profileForm.phone}
                           placeholder="Enter mobile number"
                           onChange={(event) =>
-                            setProfileForm((prev) => ({
-                              ...prev,
-                              phone: event.target.value,
-                            }))
+                            {
+                              setMaskUnverifiedPhone(false);
+                              setProfileForm((prev) => ({
+                                ...prev,
+                                phone: normalizePhone(event.target.value),
+                              }));
+                            }
                           }
-                          required
+                          inputMode="tel"
+                          maxLength={10}
                         />
                       </div>
-                      <span
-                        className={`status-badge ${
-                          profile?.phone_verified ? "verified" : "unverified"
-                        }`}
-                      >
-                        {profile?.phone_verified ? "Verified" : "Unverified"}
-                      </span>
+                      <div className="phone-badge-actions">
+                        <span
+                          className={`status-badge ${
+                            profile?.phone_verified ? "verified" : "unverified"
+                          }`}
+                        >
+                          {profile?.phone_verified ? "Verified" : "Unverified"}
+                        </span>
+                        {!profile?.phone_verified ? (
+                          <button
+                            type="button"
+                            className="btn-outline phone-verify-btn"
+                            onClick={openPhoneVerificationPopup}
+                          >
+                            Verify Mobile
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
                     <button className="btn primary" type="submit">
                       Save Changes
@@ -901,6 +1116,10 @@ export function AccountDashboard() {
                             label: `Order Received (${orderCounts.order_received ?? 0})`,
                           },
                           { key: "confirmed", label: `Confirmed (${orderCounts.confirmed ?? 0})` },
+                          {
+                            key: "ready_to_dispatch",
+                            label: `Ready To Dispatch (${orderCounts.ready_to_dispatch ?? 0})`,
+                          },
                           { key: "shipped", label: `Shipped (${orderCounts.shipped ?? 0})` },
                           { key: "delivered", label: `Delivered (${orderCounts.delivered ?? 0})` },
                           { key: "cancelled", label: `Cancelled (${orderCounts.cancelled ?? 0})` },
@@ -949,11 +1168,9 @@ export function AccountDashboard() {
                               <td>{formatCurrency(order.grand_total)}</td>
                               <td>
                                 <span
-                                  className={`badge status ${
-                                    order.payment_status?.toLowerCase() === "paid" ? "paid" : "processing"
-                                  }`}
+                                  className={`badge status ${paymentStatusClass(order.payment_status)}`}
                                 >
-                                  {order.payment_status?.toLowerCase() === "paid" ? "Paid" : "Pending"}
+                                  {paymentStatusLabel(order.payment_status)}
                                 </span>
                               </td>
                               <td>
@@ -1265,6 +1482,80 @@ export function AccountDashboard() {
           </div>
         </div>
       </div>
+
+      {phoneModalOpen ? (
+        <div className="modal-backdrop" onClick={() => closePhoneVerificationPopup(true)}>
+          <div className="modal-card phone-verify-modal" onClick={(event) => event.stopPropagation()}>
+            <h3>Verify Mobile Number</h3>
+            <p className="muted" style={{ marginTop: "0.25rem" }}>
+              Add your mobile number and verify with OTP.
+            </p>
+
+            <div className="form-row" style={{ marginTop: "1rem" }}>
+              <label htmlFor="verify-phone-input">Mobile Number</label>
+              <input
+                id="verify-phone-input"
+                value={phoneModalPhone}
+                onChange={(event) => setPhoneModalPhone(normalizePhone(event.target.value))}
+                inputMode="tel"
+                maxLength={10}
+                placeholder="Enter 10-digit mobile number"
+                disabled={phoneModalLoading}
+              />
+            </div>
+
+            {phoneModalOtpSent ? (
+              <div className="form-row" style={{ marginTop: "0.75rem" }}>
+                <label htmlFor="verify-phone-otp">OTP</label>
+                <input
+                  id="verify-phone-otp"
+                  value={phoneModalOtp}
+                  onChange={(event) => setPhoneModalOtp(normalizePhone(event.target.value).slice(0, 6))}
+                  inputMode="numeric"
+                  maxLength={6}
+                  placeholder="Enter 6-digit OTP"
+                  disabled={phoneModalLoading}
+                />
+              </div>
+            ) : null}
+
+            {phoneModalMessage ? <p className="keyword-note">{phoneModalMessage}</p> : null}
+
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn-outline"
+                onClick={() => closePhoneVerificationPopup(true)}
+                disabled={phoneModalLoading}
+              >
+                Maybe Later
+              </button>
+              {!phoneModalOtpSent ? (
+                <button
+                  type="button"
+                  className="btn primary"
+                  onClick={handleSendPhoneOtp}
+                  disabled={phoneModalLoading}
+                >
+                  {phoneModalLoading ? "Sending OTP..." : "Send OTP"}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="btn primary"
+                  onClick={handleVerifyPhoneOtp}
+                  disabled={phoneModalLoading}
+                >
+                  {phoneModalLoading ? "Verifying..." : "Verify & Continue"}
+                </button>
+              )}
+            </div>
+            <p className="phone-verify-footnote">
+              Mobile verification is important for better communication and a smoother experience.
+            </p>
+          </div>
+        </div>
+      ) : null}
 
       {addressModalOpen ? (
         <div className="modal-backdrop" onClick={() => setAddressModalOpen(false)}>

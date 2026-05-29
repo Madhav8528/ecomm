@@ -20,8 +20,10 @@ export async function generateMetadata({
     return { title: "Product Not Found" };
   }
   return {
-    title: product.name,
-    description: product.shortDescription,
+    title: product.isTableware
+      ? `${product.name} | Glass Tableware | ClearPiece`
+      : product.name,
+    description: product.description || product.shortDescription,
     keywords: product.seoKeywords?.join(", "),
   };
 }
@@ -89,6 +91,8 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
               name={product.name}
               images={product.images}
               inStock={inStock}
+              isTableware={product.isTableware}
+              capacityDisplay={product.capacityDisplay}
             />
           </div>
 
@@ -101,26 +105,28 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
 
       <section className="section">
         <div className="container">
-          <article className="card detail-specs">
-            <div className="detail-panel-header">
-              <span className="detail-panel-icon">
-                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
-                  <rect x="3" y="3" width="14" height="14" rx="2" />
-                  <path d="M7 7h6M7 10h6M7 13h4" strokeLinecap="round" />
-                </svg>
-              </span>
-              <h3>Specifications</h3>
-            </div>
-            <div className="spec-grid-horizontal">
-              <div><span className="spec-label">Capacity</span><strong>{specs.capacity}</strong></div>
-              <div><span className="spec-label">Height</span><strong>{specs.height}</strong></div>
-              <div><span className="spec-label">Width</span><strong>{specs.width}</strong></div>
-              <div><span className="spec-label">Weight</span><strong>{specs.weight}</strong></div>
-              <div><span className="spec-label">Glass Color</span><strong>{specs.color}</strong></div>
-              <div><span className="spec-label">Shape</span><strong>{specs.shape}</strong></div>
-              <div><span className="spec-label">Neck Size</span><strong>{specs.neckSize}</strong></div>
-            </div>
-          </article>
+          {!product.isTableware ? (
+            <article className="card detail-specs">
+              <div className="detail-panel-header">
+                <span className="detail-panel-icon">
+                  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+                    <rect x="3" y="3" width="14" height="14" rx="2" />
+                    <path d="M7 7h6M7 10h6M7 13h4" strokeLinecap="round" />
+                  </svg>
+                </span>
+                <h3>Specifications</h3>
+              </div>
+              <div className="spec-grid-horizontal">
+                <div><span className="spec-label">Capacity</span><strong>{specs.capacity}</strong></div>
+                <div><span className="spec-label">Height</span><strong>{specs.height}</strong></div>
+                <div><span className="spec-label">Width</span><strong>{specs.width}</strong></div>
+                <div><span className="spec-label">Weight</span><strong>{specs.weight}</strong></div>
+                <div><span className="spec-label">Glass Color</span><strong>{specs.color}</strong></div>
+                <div><span className="spec-label">Shape</span><strong>{specs.shape}</strong></div>
+                <div><span className="spec-label">Neck Size</span><strong>{specs.neckSize}</strong></div>
+              </div>
+            </article>
+          ) : null}
 
           <div className="detail-bottom-row">
             <article className="card detail-description">

@@ -7,11 +7,20 @@ export const metadata: Metadata = {
 };
 
 type ProductsPageProps = {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; category?: string }>;
 };
 
-function getCatalogCopy(query: string) {
+function getCatalogCopy(query: string, category: string) {
   const normalized = query.toLowerCase();
+  const normalizedCategory = category.toLowerCase();
+
+  if (normalizedCategory === "tableware") {
+    return {
+      title: "Glass Tableware",
+      description:
+        "Tumblers, jugs, wine glasses, beer glasses, mugs, shot glasses, and more for bulk-ready B2B supply.",
+    };
+  }
 
   if (normalized.includes("jar")) {
     return {
@@ -56,18 +65,32 @@ function getCatalogCopy(query: string) {
   return {
     title: "All Products",
     description:
-      "Browse our complete catalog of glass jars, bottles, closures, and packaging accessories built for modern brands. Every product is selected for quality, compatibility, and long-term usability in bulk supply workflows. Use filters on the left to narrow by category, price range, availability, and bestseller tags. Sort results based on price to quickly find the right match for your requirement. This page is designed for fast discovery and business-ready ordering decisions.",
+      "Browse our complete catalog of glass jars, bottles, closures, and packaging accessories built for modern brands. Every product is selected for quality, compatibility, and long-term usability in bulk supply workflows. Use filters on the left to narrow by product type, capacity, closure size, shape, availability, and customization. Sort results based on price to quickly find the right match for your requirement. This page is designed for fast discovery and business-ready ordering decisions.",
   };
 }
 
 export default async function ProductsPage({ searchParams }: ProductsPageProps) {
   const params = await searchParams;
   const query = params.q?.trim() ?? "";
+  const category = params.category?.trim() ?? "";
   const [categories, products] = await Promise.all([
     getCategoriesSafe(),
-    getProductsSafe({ query: query || undefined }),
+    getProductsSafe({
+      query: query || undefined,
+      categorySlug: category || undefined,
+      isTableware: category.toLowerCase() === "tableware" ? true : undefined,
+    }),
   ]);
-  const copy = getCatalogCopy(query);
+  const copy = getCatalogCopy(query, category);
 
-  return <ProductCatalogLayout title={copy.title} description={copy.description} products={products} categories={categories} />;
+  return (
+    <ProductCatalogLayout
+      key={`${category.toLowerCase()}|${query.toLowerCase()}`}
+      title={copy.title}
+      description={copy.description}
+      products={products}
+      categories={categories}
+      mode={category.toLowerCase() === "tableware" ? "tableware" : "default"}
+    />
+  );
 }

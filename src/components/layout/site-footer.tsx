@@ -11,7 +11,7 @@ export function SiteFooter() {
             manufacturers, and premium gifting programs.
           </p>
           <p style={{ marginTop: "0.6rem" }}>
-            Glass Nagar, Firozabad, Uttar Pradesh — 283103
+            Glass Nagar, Firozabad, Uttar Pradesh - 283103
           </p>
           <p>Email: sales@clearpiece.in</p>
           <p>Phone: +91 98765 43210</p>
@@ -32,7 +32,19 @@ export function SiteFooter() {
               <Link href="/products?q=gift">Corporate Gifting Jars</Link>
             </li>
             <li>
+              <Link href="/customisation">Customisation Studio</Link>
+            </li>
+            <li>
               <Link href="/about-us">About Us</Link>
+            </li>
+            <li>
+              <Link href="/terms-and-conditions">Terms & Conditions</Link>
+            </li>
+            <li>
+              <Link href="/shipping-breakage-return-policy">Shipping Policy</Link>
+            </li>
+            <li>
+              <Link href="/privacy-policy">Privacy Policy</Link>
             </li>
           </ul>
         </div>
@@ -46,16 +58,25 @@ export function SiteFooter() {
               <Link href="/orders">Track Orders</Link>
             </li>
             <li>
+              <Link href="/account/sample-requests">Track Sample Requests</Link>
+            </li>
+            <li>
               <Link href="/contact-us">Contact Us</Link>
             </li>
             <li>
               <Link href="/about-us">About Us</Link>
             </li>
             <li>
-              <Link href="#">Policies</Link>
+              <Link href="/terms-and-conditions">Policies</Link>
             </li>
             <li>
-              <Link href="#">Terms & Conditions</Link>
+              <Link href="/terms-and-conditions">Terms & Conditions</Link>
+            </li>
+            <li>
+              <Link href="/shipping-breakage-return-policy">Shipping, Breakage & Return</Link>
+            </li>
+            <li>
+              <Link href="/privacy-policy">Privacy Policy</Link>
             </li>
             <li>
               <Link href="#">Download Catalog</Link>
@@ -65,6 +86,12 @@ export function SiteFooter() {
       </div>
       <div className="footer-base">
         <div className="container">
+          <p className="footer-legal-disclaimer">
+            By using this website or placing an order with ClearPiece, you agree to our{" "}
+            <Link href="/terms-and-conditions">Terms & Conditions</Link>,{" "}
+            <Link href="/shipping-breakage-return-policy">Shipping Policy</Link>, and{" "}
+            <Link href="/privacy-policy">Privacy Policy</Link>.
+          </p>
           <p>Copyright {new Date().getFullYear()} Clearpiece. All rights reserved.</p>
         </div>
       </div>

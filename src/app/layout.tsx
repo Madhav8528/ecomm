@@ -29,6 +29,25 @@ export const metadata: Metadata = {
   description: "Clearpiece glass jars, bottles, and premium packaging storefront",
 };
 
+const themeInitScript = `
+(() => {
+  try {
+    const storageKey = "clearpiece-theme";
+    const storedTheme = window.localStorage.getItem(storageKey);
+    const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    const resolvedTheme =
+      storedTheme === "dark" || storedTheme === "light" ? storedTheme : systemTheme;
+    document.documentElement.setAttribute("data-theme", resolvedTheme);
+    document.documentElement.style.colorScheme = resolvedTheme;
+  } catch {
+    document.documentElement.setAttribute(
+      "data-theme",
+      window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light",
+    );
+  }
+})();
+`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -36,6 +55,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body
         className={`${inter.variable} ${lora.variable} ${poppins.variable}`}
         suppressHydrationWarning

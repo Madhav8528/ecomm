@@ -7,15 +7,27 @@ import { useAuth } from "@/context/auth-context";
 import { useCart } from "@/context/cart-context";
 import { formatCurrency } from "@/lib/format";
 
+const CART_STOCK_NOTICE_KEY = "clearpiece-cart-stock-notice-v1";
+
 export function CartPageContent() {
   const { items, subtotal, updateQuantity, removeItem, clearCart, isHydrated } = useCart();
   const { user, login } = useAuth();
   const router = useRouter();
+  const [acceptPolicies, setAcceptPolicies] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
   const [loggingIn, setLoggingIn] = useState(false);
+  const [stockNotice] = useState(() => {
+    if (typeof window === "undefined") return "";
+    const notice = window.sessionStorage.getItem(CART_STOCK_NOTICE_KEY) ?? "";
+    if (notice) {
+      window.sessionStorage.removeItem(CART_STOCK_NOTICE_KEY);
+    }
+    return notice;
+  });
+  const [lineWarnings, setLineWarnings] = useState<Record<string, string>>({});
 
   if (!isHydrated) {
     return (
@@ -48,7 +60,7 @@ export function CartPageContent() {
   const minimumMessage = `Minimum order value is ${formatCurrency(8000)} before GST. Current subtotal: ${formatCurrency(subtotal)}. Add more items to proceed.`;
 
   async function handleProceed() {
-    if (!meetsMinimum) return;
+    if (!meetsMinimum || !acceptPolicies) return;
     if (!user) {
       setShowLogin(true);
       return;
@@ -74,9 +86,49 @@ export function CartPageContent() {
     return Math.max(1, item.packSize ?? 40);
   }
 
+  function getSetSize(item: typeof items[number]) {
+    return Math.max(1, item.setSize ?? 6);
+  }
+
+  function getLineTotal(item: typeof items[number]) {
+    if (item.priceUnit === "per_set") {
+      return (item.price * item.quantity) / getSetSize(item);
+    }
+    return item.price * item.quantity;
+  }
+
   function getBoxCount(item: typeof items[number]) {
     const packSize = getPackSize(item);
     return Math.max(1, Math.ceil(item.quantity / packSize));
+  }
+
+  function clearLineWarning(id: string) {
+    setLineWarnings((prev) => {
+      if (!prev[id]) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  }
+
+  function updateQuantityWithStockCheck(item: typeof items[number], requestedQuantity: number) {
+    const maxStock = typeof item.maxStock === "number" ? Math.max(0, item.maxStock) : undefined;
+    const safeRequested = Math.max(0, Math.floor(requestedQuantity));
+    const cappedQuantity =
+      typeof maxStock === "number" ? Math.min(safeRequested, maxStock) : safeRequested;
+
+    updateQuantity(item.id, cappedQuantity);
+
+    if (typeof maxStock === "number" && safeRequested > maxStock) {
+      setLineWarnings((prev) => ({
+        ...prev,
+        [item.id]: `Only ${maxStock} units are available for this item.`,
+      }));
+      return cappedQuantity;
+    }
+
+    clearLineWarning(item.id);
+    return cappedQuantity;
   }
 
   function findClosureItems(productId: string, productSlug: string) {
@@ -90,14 +142,29 @@ export function CartPageContent() {
   function updateBoxes(item: typeof items[number], boxes: number) {
     const safeBoxes = Math.max(1, boxes);
     const packSize = getPackSize(item);
-    const totalPcs = safeBoxes * packSize;
-    updateQuantity(item.id, totalPcs);
+    const requestedTotalPcs = safeBoxes * packSize;
+    const maxStock = typeof item.maxStock === "number" ? Math.max(0, item.maxStock) : undefined;
+    if (typeof maxStock === "number" && requestedTotalPcs > maxStock) {
+      setLineWarnings((prev) => ({
+        ...prev,
+        [item.id]: `Only ${maxStock} units are available for this item.`,
+      }));
+      return;
+    }
+
+    clearLineWarning(item.id);
+    const totalPcs = updateQuantityWithStockCheck(item, requestedTotalPcs);
     const closures = findClosureItems(item.id, item.slug);
-    closures.forEach((closure) => updateQuantity(closure.id, totalPcs));
+    closures.forEach((closure) => updateQuantityWithStockCheck(closure, totalPcs));
   }
 
   return (
     <>
+    {stockNotice ? (
+      <div className="card" style={{ marginBottom: "0.9rem" }}>
+        <p className="form-error">{stockNotice}</p>
+      </div>
+    ) : null}
     <div className="split-layout">
       <section className="card list-panel">
         {items.map((item) => (
@@ -122,17 +189,24 @@ export function CartPageContent() {
               {item.categorySlug !== "closures" ? (
                 <p className="cart-row-meta">
                   {getBoxCount(item)} box{getBoxCount(item) > 1 ? "es" : ""} &times; {getPackSize(item)} pcs/box
-                  <span className="cart-row-total-pcs"> = {getBoxCount(item) * getPackSize(item)} pcs</span>
+                  <span className="cart-row-total-pcs"> = {item.quantity} pcs</span>
                 </p>
               ) : null}
-              <p className="cart-row-unit-price">{formatCurrency(item.price)} <span className="cart-row-price-label">per pc</span></p>
+              <p className="cart-row-unit-price">
+                {formatCurrency(item.price)}{" "}
+                <span className="cart-row-price-label">
+                  {item.priceUnit === "per_set"
+                    ? `per set (${getSetSize(item)} ${getSetSize(item) === 1 ? "pc" : "pcs"})`
+                    : "per pc"}
+                </span>
+              </p>
             </div>
 
             <div className="cart-row-controls">
               <div className="quantity-control">
                 <button type="button" className="qty-btn" onClick={() =>
                   item.categorySlug === "closures"
-                    ? updateQuantity(item.id, item.quantity - 1)
+                    ? updateQuantityWithStockCheck(item, item.quantity - 1)
                     : updateBoxes(item, getBoxCount(item) - 1)
                 }>-</button>
                 <span className="qty-value">
@@ -140,11 +214,11 @@ export function CartPageContent() {
                 </span>
                 <button type="button" className="qty-btn" onClick={() =>
                   item.categorySlug === "closures"
-                    ? updateQuantity(item.id, item.quantity + 1)
+                    ? updateQuantityWithStockCheck(item, item.quantity + 1)
                     : updateBoxes(item, getBoxCount(item) + 1)
                 }>+</button>
               </div>
-              <p className="cart-row-line-total">{formatCurrency(item.price * item.quantity)}</p>
+              <p className="cart-row-line-total">{formatCurrency(getLineTotal(item))}</p>
               <button
                 type="button"
                 className="cart-row-remove"
@@ -156,6 +230,11 @@ export function CartPageContent() {
                 </svg>
               </button>
             </div>
+            {lineWarnings[item.id] ? (
+              <p className="form-error" style={{ marginTop: "0.5rem" }}>
+                {lineWarnings[item.id]}
+              </p>
+            ) : null}
           </article>
         ))}
       </section>
@@ -177,11 +256,26 @@ export function CartPageContent() {
         {!meetsMinimum ? (
           <p className="form-error">{minimumMessage}</p>
         ) : null}
+        <label className="contact-policy-consent" htmlFor="cart-policy-consent">
+          <input
+            id="cart-policy-consent"
+            type="checkbox"
+            checked={acceptPolicies}
+            onChange={(event) => setAcceptPolicies(event.target.checked)}
+          />
+          <span>
+            I have read and agree to the <Link href="/terms-and-conditions">Terms & Conditions</Link> and{" "}
+            <Link href="/privacy-policy">Privacy Policy</Link>.
+          </span>
+        </label>
+        {meetsMinimum && !acceptPolicies ? (
+          <p className="form-error">Please accept Terms & Conditions and Privacy Policy to continue.</p>
+        ) : null}
         <button
           type="button"
           className="btn btn-primary"
           style={{ textAlign: "center" }}
-          disabled={!meetsMinimum}
+          disabled={!meetsMinimum || !acceptPolicies}
           onClick={handleProceed}
         >
           Proceed to Checkout

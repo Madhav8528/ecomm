@@ -1,7 +1,7 @@
 import Link from "next/link";
-import Image from "next/image";
 import { HomeSlider } from "@/components/home/home-slider";
 import { RecentlyViewedSection } from "@/components/home/recently-viewed-section";
+import { ShopByProduct } from "@/components/home/shop-by-product";
 import { ProductCard } from "@/components/product/product-card";
 import {
   getBestSellersSafe,
@@ -159,29 +159,6 @@ const qualityItems = [
   },
 ];
 
-const shopByProduct = [
-  {
-    title: "Glass Jars",
-    href: "/products?q=jar",
-    image: "/categories/glass-jars.svg",
-  },
-  {
-    title: "Glass Bottles",
-    href: "/products?q=bottle",
-    image: "/categories/glass-bottles.svg",
-  },
-  {
-    title: "Cap Closures",
-    href: "/products?q=cap",
-    image: "/categories/cap-closures.svg",
-  },
-  {
-    title: "Corporate Gifting Jars",
-    href: "/products?q=gift",
-    image: "/categories/corporate-gifting.svg",
-  },
-];
-
 const trustedBrands = [
   "FreshNest Foods",
   "Aurum Wellness",
@@ -223,26 +200,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="section section-soft" id="shop-by-product">
-        <div className="container">
-          <div className="section-title-row">
-            <h2 className="section-title">Shop By Product</h2>
-            <Link href="/products" className="section-note">
-              View full catalog
-            </Link>
-          </div>
-          <div className="shop-category-grid">
-            {shopByProduct.map((item) => (
-              <Link href={item.href} key={item.title} className="shop-category-card">
-                <div className="shop-category-image">
-                  <Image src={item.image} alt={item.title} fill sizes="260px" />
-                </div>
-                <h3>{item.title}</h3>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
+      <ShopByProduct />
 
       <section className="section" id="corporate-gifting-jars">
         <div className="container">

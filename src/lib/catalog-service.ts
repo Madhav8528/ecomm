@@ -26,6 +26,8 @@ type ProductApi = {
   is_best_seller: boolean;
   is_active: boolean;
   pack_size?: number;
+  capacity_ml?: number | string | null;
+  closure_size?: number | string | null;
   capacity?: string;
   height?: string;
   width?: string;
@@ -33,6 +35,16 @@ type ProductApi = {
   color?: string;
   shape?: string;
   neck_size?: string;
+  is_tableware?: boolean;
+  sub_category?: "tumbler" | "jug" | "wine_glass" | "beer_glass" | "mug" | "shot_glass" | "ice_cups" | "other" | null;
+  capacity_display?: string | null;
+  packaging_type?: "brown_box" | "gift_box" | "both" | null;
+  brown_box_price_per_piece?: string | number | null;
+  gift_box_price_per_piece?: string | number | null;
+  gift_box_sets_per_box?: number | null;
+  gift_box_pcs_per_set?: number | null;
+  custom_print_available?: boolean;
+  custom_shape_available?: boolean;
   use_case_copy?: string[];
   seo_keywords?: string[];
   images?: { id: number; url: string; is_primary: boolean; sort_order: number }[];
@@ -59,7 +71,14 @@ type OrderApi = {
   id: number;
   order_number: string;
   customer_email: string;
-  status: "order_received" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled";
+  status:
+    | "order_received"
+    | "confirmed"
+    | "ready_to_dispatch"
+    | "processing"
+    | "shipped"
+    | "delivered"
+    | "cancelled";
   total: string;
   created_at: string;
   items: OrderItemApi[];
@@ -79,9 +98,57 @@ const DEFAULT_FEATURES = [
   "Suitable for airtight closures",
 ];
 
+function toOptionalNumber(value: string | number | null | undefined): number | undefined {
+  if (value === null || value === undefined || value === "") return undefined;
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 function normalizeList<T>(payload: T[] | Paginated<T>): T[] {
   if (Array.isArray(payload)) return payload;
   return Array.isArray(payload.results) ? payload.results : [];
+}
+
+async function fetchAllPages<T>(path: string): Promise<T[]> {
+  const results: T[] = [];
+  let nextPath: string | null = path;
+  let safety = 0;
+  const basePath = new URL(BACKEND_API_BASE_URL).pathname.replace(/\/$/, "");
+
+  while (nextPath && safety < 50) {
+    safety += 1;
+    const payload = await backendRequest<T[] | Paginated<T>>(nextPath);
+    if (!payload) break;
+
+    if (Array.isArray(payload)) {
+      results.push(...payload);
+      break;
+    }
+
+    if (Array.isArray(payload.results)) {
+      results.push(...payload.results);
+    }
+
+    if (payload.next) {
+      try {
+        const nextUrl = new URL(payload.next, BACKEND_API_BASE_URL);
+        let derivedPath = `${nextUrl.pathname}${nextUrl.search}`;
+        if (basePath && derivedPath.startsWith(basePath)) {
+          derivedPath = derivedPath.slice(basePath.length) || "/";
+        }
+        if (!derivedPath.startsWith("/")) {
+          derivedPath = `/${derivedPath}`;
+        }
+        nextPath = derivedPath;
+      } catch {
+        nextPath = null;
+      }
+    } else {
+      nextPath = null;
+    }
+  }
+
+  return results;
 }
 
 async function backendRequest<T>(
@@ -122,10 +189,23 @@ function mapProduct(product: ProductApi): Product {
     compareAtPrice: product.compare_at_price ? Number(product.compare_at_price) : undefined,
     currency: "INR",
     isBestSeller: product.is_best_seller,
+    capacityMl: toOptionalNumber(product.capacity_ml),
+    closureSize: toOptionalNumber(product.closure_size),
+    shape: product.shape || undefined,
+    customPrintAvailable: product.custom_print_available,
+    customShapeAvailable: product.custom_shape_available,
     rating: Number(product.rating),
     reviewCount: product.review_count,
     features: DEFAULT_FEATURES,
     packSize: product.pack_size,
+    isTableware: product.is_tableware,
+    subCategory: product.sub_category ?? undefined,
+    capacityDisplay: product.capacity_display ?? undefined,
+    packagingType: product.packaging_type ?? undefined,
+    brownBoxPricePerPiece: toOptionalNumber(product.brown_box_price_per_piece),
+    giftBoxPricePerPiece: toOptionalNumber(product.gift_box_price_per_piece),
+    giftBoxSetsPerBox: product.gift_box_sets_per_box ?? undefined,
+    giftBoxPcsPerSet: product.gift_box_pcs_per_set ?? undefined,
     specs: product.capacity
       ? {
           capacity: product.capacity ?? "",
@@ -165,18 +245,23 @@ export async function getCategoriesSafe(): Promise<Category[]> {
 export async function getProductsSafe(params?: {
   categorySlug?: string;
   query?: string;
+  isTableware?: boolean;
+  subCategory?: string;
+  packagingType?: string;
 }): Promise<Product[]> {
   const searchParams = new URLSearchParams();
   if (params?.categorySlug) searchParams.set("category", params.categorySlug);
   if (params?.query) searchParams.set("q", params.query);
+  if (typeof params?.isTableware === "boolean") {
+    searchParams.set("is_tableware", params.isTableware ? "true" : "false");
+  }
+  if (params?.subCategory) searchParams.set("sub_category", params.subCategory);
+  if (params?.packagingType) searchParams.set("packaging_type", params.packagingType);
   const queryString = searchParams.toString();
-
-  const payload = await backendRequest<ProductApi[] | Paginated<ProductApi>>(
-    `/products/${queryString ? `?${queryString}` : ""}`,
-  );
-  if (!payload) return [];
-
-  const products = normalizeList(payload).map(mapProduct);
+  const path = `/products/${queryString ? `?${queryString}` : ""}`;
+  const items = await fetchAllPages<ProductApi>(path);
+  if (!items.length) return [];
+  const products = items.map(mapProduct);
   return products.length ? products : [];
 }
 

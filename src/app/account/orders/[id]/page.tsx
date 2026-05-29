@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { OrderConfirmationContent } from "@/components/checkout/order-confirmation-content";
 
 type PageProps = {
-  params: Promise<{ orderId: string }>;
+  params: Promise<{ id: string }>;
 };
 
 export const metadata: Metadata = {

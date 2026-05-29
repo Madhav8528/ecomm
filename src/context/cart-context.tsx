@@ -11,7 +11,11 @@ export type CartLine = {
   sku: string;
   categorySlug: string;
   price: number;
+  priceUnit?: "per_piece" | "per_set";
+  setSize?: number;
   quantity: number;
+  packagingMode?: "brown_box" | "gift_box";
+  maxStock?: number;
   packSize?: number;
   parentId?: string;
   image?: string;
@@ -31,6 +35,28 @@ type CartContextValue = {
 };
 
 const CartContext = createContext<CartContextValue | undefined>(undefined);
+
+function normalizeMaxStock(...candidates: Array<number | undefined>) {
+  const values = candidates
+    .filter((value): value is number => typeof value === "number" && Number.isFinite(value))
+    .map((value) => Math.max(0, Math.floor(value)));
+  if (!values.length) return undefined;
+  return Math.min(...values);
+}
+
+function clampQuantityByStock(quantity: number, maxStock?: number) {
+  const normalizedQuantity = Math.max(0, Math.floor(quantity));
+  if (typeof maxStock !== "number") return normalizedQuantity;
+  return Math.min(normalizedQuantity, maxStock);
+}
+
+function getLineTotal(item: CartLine) {
+  if (item.priceUnit === "per_set") {
+    const setSize = Math.max(1, item.setSize ?? 6);
+    return (item.price * item.quantity) / setSize;
+  }
+  return item.price * item.quantity;
+}
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartLine[]>([]);
@@ -61,20 +87,29 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   );
 
   const subtotal = useMemo(
-    () => items.reduce((sum, item) => sum + item.price * item.quantity, 0),
+    () => items.reduce((sum, item) => sum + getLineTotal(item), 0),
     [items],
   );
 
   function addItem(item: AddItemInput) {
-    const qty = item.quantity ?? 1;
+    const qty = Math.max(1, item.quantity ?? 1);
     setItems((prev) => {
       const existing = prev.find((line) => line.id === item.id);
+      const maxStock = normalizeMaxStock(existing?.maxStock, item.maxStock);
       if (existing) {
+        const quantity = clampQuantityByStock(existing.quantity + qty, maxStock);
+        if (quantity <= 0) {
+          return prev.filter((line) => line.id !== item.id);
+        }
         return prev.map((line) =>
-          line.id === item.id ? { ...line, quantity: line.quantity + qty } : line,
+          line.id === item.id
+            ? { ...line, quantity, maxStock, price: item.price, priceUnit: item.priceUnit, setSize: item.setSize, packagingMode: item.packagingMode }
+            : line,
         );
       }
-      return [...prev, { ...item, quantity: qty }];
+      const quantity = clampQuantityByStock(qty, maxStock);
+      if (quantity <= 0) return prev;
+      return [...prev, { ...item, quantity, maxStock }];
     });
   }
 
@@ -83,13 +118,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }
 
   function updateQuantity(id: string, quantity: number) {
-    if (quantity <= 0) {
-      removeItem(id);
-      return;
-    }
-    setItems((prev) =>
-      prev.map((line) => (line.id === id ? { ...line, quantity } : line)),
-    );
+    setItems((prev) => {
+      const line = prev.find((entry) => entry.id === id);
+      if (!line) return prev;
+      const safeQuantity = clampQuantityByStock(quantity, line.maxStock);
+      if (safeQuantity <= 0) {
+        return prev.filter((entry) => entry.id !== id);
+      }
+      return prev.map((entry) => (entry.id === id ? { ...entry, quantity: safeQuantity } : entry));
+    });
   }
 
   function clearCart() {

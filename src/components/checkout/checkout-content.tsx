@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/context/cart-context";
@@ -42,7 +42,10 @@ type NormalizedItem = {
   product_id: number;
   product_name: string;
   unit_price: number;
+  price_unit?: "per_piece" | "per_set";
+  set_size?: number;
   quantity: number;
+  packaging_mode?: "brown_box" | "gift_box";
   closure_name?: string;
   closure_price?: number;
   line_total: number;
@@ -52,16 +55,11 @@ type CartTotals = {
   subtotal: number;
   gst_amount: number;
   grand_total: number;
+  sample_credit_adjustment?: number;
+  adjusted_grand_total?: number;
+  sample_credit_source_request?: string;
   meets_minimum: boolean;
   cod_available: boolean;
-};
-
-type RazorpayInit = {
-  razorpay_order_id: string;
-  amount: number;
-  currency: string;
-  key_id: string;
-  order_id: string;
 };
 
 type CheckoutDraft = {
@@ -95,39 +93,6 @@ type CheckoutDraft = {
   };
   sameAsBilling: boolean;
   selectedAddressId: number | "";
-  paymentMethod: string;
-};
-
-declare global {
-  interface Window {
-    Razorpay?: new (options: Record<string, unknown>) => { open: () => void };
-  }
-}
-
-const paymentMethods = [
-  {
-    value: "online",
-    label: "Online Payment",
-    description: "Razorpay — UPI, Cards, Net Banking, Wallets",
-  },
-  {
-    value: "bank_transfer",
-    label: "Bank Transfer (NEFT/RTGS)",
-    description: "Use bank details after placing order",
-  },
-  {
-    value: "cod",
-    label: "Cash on Delivery",
-    description: "Pay at delivery",
-  },
-];
-
-const bankDetails = {
-  accountName: "Clearpiece Glass Packaging Solutions",
-  accountNumber: "012345678901",
-  bankName: "HDFC Bank",
-  ifsc: "HDFC0001234",
-  branch: "Ahmedabad",
 };
 
 const INDIA_STATES = [
@@ -170,11 +135,21 @@ const INDIA_STATES = [
 ];
 
 const CHECKOUT_DRAFT_KEY = "guru-checkout-draft-v1";
+const CART_STOCK_NOTICE_KEY = "clearpiece-cart-stock-notice-v1";
 
 const GST_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+const STOCK_ERROR_REGEX = /Only\s+(\d+)\s+units?\s+available(?:\s+for\s+(.+?))?/i;
 
 function normalizeGst(value: string) {
   return value.replace(/\s+/g, "").toUpperCase();
+}
+
+function getCartStockNotice(errorMessage: string) {
+  const match = errorMessage.match(STOCK_ERROR_REGEX);
+  if (!match) return null;
+  const units = Number(match[1]);
+  if (!Number.isFinite(units)) return "Some items in your cart are no longer available in the requested quantity.";
+  return `Only ${units} units are currently available. Please update quantity in your cart.`;
 }
 
 function validateBusinessDetails(business: { name: string; gst: string }) {
@@ -215,19 +190,6 @@ async function apiPost<T>(url: string, body: Record<string, unknown>) {
   return (await response.json()) as T;
 }
 
-async function loadRazorpayScript() {
-  if (typeof window === "undefined") return false;
-  if (window.Razorpay) return true;
-
-  return new Promise<boolean>((resolve) => {
-    const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
-    document.body.appendChild(script);
-  });
-}
-
 export function CheckoutContent() {
   const router = useRouter();
   const { items, clearCart } = useCart();
@@ -265,15 +227,24 @@ export function CheckoutContent() {
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<number | "">("");
 
-  const [paymentMethod, setPaymentMethod] = useState("online");
+  const [acceptPolicies, setAcceptPolicies] = useState(false);
+  const [humanVerified, setHumanVerified] = useState(false);
   const [totals, setTotals] = useState<CartTotals | null>(null);
   const [loadingTotals, setLoadingTotals] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [bankTransferOrderId, setBankTransferOrderId] = useState<string | null>(null);
-  const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
   const draftRef = useRef<CheckoutDraft | null>(null);
   const [draftReady, setDraftReady] = useState(false);
+
+  const redirectToCartForStockIssue = useCallback((errorMessage: string) => {
+    const notice = getCartStockNotice(errorMessage);
+    if (!notice) return false;
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem(CART_STOCK_NOTICE_KEY, notice);
+    }
+    router.push("/cart");
+    return true;
+  }, [router]);
 
   const normalizedItems = useMemo<NormalizedItem[]>(() => {
     const productItems = items.filter((item) => item.categorySlug !== "closures");
@@ -286,12 +257,20 @@ export function CheckoutContent() {
         const closure = closureItems.find((closureItem) => closureItem.slug === item.slug);
         const closureName = closure?.name?.replace(/\s*\(Closure\)$/i, "") ?? "";
         const closurePrice = closure?.price ?? 0;
-        const lineTotal = (item.price + closurePrice) * item.quantity;
+        const setSize = Math.max(1, item.setSize ?? 6);
+        const productLineTotal =
+          item.priceUnit === "per_set"
+            ? (item.price * item.quantity) / setSize
+            : item.price * item.quantity;
+        const lineTotal = productLineTotal + closurePrice * item.quantity;
         return {
           product_id: productId,
           product_name: item.name,
           unit_price: item.price,
+          price_unit: item.priceUnit,
+          set_size: item.setSize,
           quantity: item.quantity,
+          packaging_mode: item.packagingMode,
           closure_name: closureName || undefined,
           closure_price: closurePrice || 0,
           line_total: lineTotal,
@@ -306,9 +285,10 @@ export function CheckoutContent() {
   );
   const computedGst = computedSubtotal * 0.18;
   const computedGrandTotal = computedSubtotal + computedGst;
+  const sampleCreditAdjustment = totals?.sample_credit_adjustment ?? 0;
+  const adjustedGrandTotal = totals?.adjusted_grand_total ?? computedGrandTotal;
 
   const meetsMinimum = totals?.meets_minimum ?? computedSubtotal >= 8000;
-  const codAvailable = totals?.cod_available ?? true;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -323,7 +303,6 @@ export function CheckoutContent() {
         if (parsed.business) setBusiness(parsed.business);
         if (typeof parsed.sameAsBilling === "boolean") setSameAsBilling(parsed.sameAsBilling);
         if (parsed.selectedAddressId !== undefined) setSelectedAddressId(parsed.selectedAddressId);
-        if (parsed.paymentMethod) setPaymentMethod(parsed.paymentMethod);
       } catch {
         draftRef.current = null;
       }
@@ -340,10 +319,9 @@ export function CheckoutContent() {
       business,
       sameAsBilling,
       selectedAddressId,
-      paymentMethod,
     };
     window.sessionStorage.setItem(CHECKOUT_DRAFT_KEY, JSON.stringify(draft));
-  }, [contact, billing, shipping, business, sameAsBilling, selectedAddressId, paymentMethod, draftReady]);
+  }, [contact, billing, shipping, business, sameAsBilling, selectedAddressId, draftReady]);
 
   useEffect(() => {
     let isMounted = true;
@@ -466,6 +444,7 @@ export function CheckoutContent() {
       items: normalizedItems.map((item) => ({
         product_id: item.product_id,
         quantity: item.quantity,
+        packaging_mode: item.packaging_mode,
         closure_name: item.closure_name,
         closure_price: item.closure_price,
       })),
@@ -476,7 +455,9 @@ export function CheckoutContent() {
       })
       .catch((err) => {
         if (!isMounted) return;
-        setError(err instanceof Error ? err.message : "Unable to validate cart.");
+        const message = err instanceof Error ? err.message : "Unable to validate cart.";
+        if (redirectToCartForStockIssue(message)) return;
+        setError(message);
       })
       .finally(() => {
         if (!isMounted) return;
@@ -486,7 +467,7 @@ export function CheckoutContent() {
     return () => {
       isMounted = false;
     };
-  }, [normalizedItems]);
+  }, [normalizedItems, redirectToCartForStockIssue]);
 
   useEffect(() => {
     if (!selectedAddressId) return;
@@ -503,16 +484,6 @@ export function CheckoutContent() {
     });
   }, [selectedAddressId, addresses]);
 
-  useEffect(() => {
-    if (paymentMethod !== "online") {
-      setPendingOrderId(null);
-    }
-  }, [paymentMethod]);
-
-  useEffect(() => {
-    setPendingOrderId(null);
-  }, [normalizedItems]);
-
   if (!items.length) {
     return (
       <div className="card empty-state">
@@ -527,46 +498,6 @@ export function CheckoutContent() {
     );
   }
 
-  if (bankTransferOrderId) {
-    return (
-      <div className="card">
-        <h3>Bank Transfer Instructions</h3>
-        <p className="muted" style={{ marginTop: "0.4rem" }}>
-          Use the details below to complete your payment. Your order is on hold until payment is confirmed.
-        </p>
-        <div className="summary-row">
-          <span>Order ID</span>
-          <strong>{bankTransferOrderId}</strong>
-        </div>
-        <div className="summary-row">
-          <span>Account Name</span>
-          <span>{bankDetails.accountName}</span>
-        </div>
-        <div className="summary-row">
-          <span>Account Number</span>
-          <span>{bankDetails.accountNumber}</span>
-        </div>
-        <div className="summary-row">
-          <span>Bank</span>
-          <span>{bankDetails.bankName}</span>
-        </div>
-        <div className="summary-row">
-          <span>IFSC</span>
-          <span>{bankDetails.ifsc}</span>
-        </div>
-        <div className="summary-row">
-          <span>Branch</span>
-          <span>{bankDetails.branch}</span>
-        </div>
-        <div style={{ marginTop: "1rem" }}>
-          <Link href={`/order-confirmation/${bankTransferOrderId}`} className="btn btn-primary">
-            View Order Confirmation
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
   async function handlePlaceOrder() {
     if (!meetsMinimum || !normalizedItems.length) return;
 
@@ -575,112 +506,66 @@ export function CheckoutContent() {
       setError(businessError);
       return;
     }
+    if (!humanVerified) {
+      setError("Please confirm you are not a robot before placing your order.");
+      return;
+    }
+    if (!acceptPolicies) {
+      setError("Please accept Terms & Conditions and Privacy Policy before placing your order.");
+      return;
+    }
 
     setError("");
     setSubmitting(true);
 
     try {
-      let orderId = pendingOrderId;
-      if (paymentMethod !== "online" || !pendingOrderId) {
-        const orderResponse = await apiPost<{ order_id: string }>("/api/checkout/create-order", {
-          payment_method: paymentMethod,
-          contact_name: contact.name,
-          contact_email: contact.email,
-          contact_phone: contact.phone,
-          billing_name: billing.name,
-          billing_address_line1: billing.line1,
-          billing_address_line2: billing.line2,
-          billing_city: billing.city,
-          billing_state: billing.state,
-          billing_pin: billing.pin,
-          billing_phone: billing.phone,
-          shipping_name: shipping.name,
-          shipping_address_line1: shipping.line1,
-          shipping_address_line2: shipping.line2,
-          shipping_city: shipping.city,
-          shipping_state: shipping.state,
-          shipping_pin: shipping.pin,
-          shipping_phone: shipping.phone,
-          business_name: business.name.trim(),
-          business_type: business.type,
-          gst_number: normalizeGst(business.gst ?? ""),
-          items: normalizedItems.map((item) => ({
-            product_id: item.product_id,
-            quantity: item.quantity,
-            closure_name: item.closure_name,
-            closure_price: item.closure_price,
-          })),
-        });
-        orderId = orderResponse.order_id;
-        if (paymentMethod === "online") {
-          setPendingOrderId(orderId);
-        }
-      }
+      const orderResponse = await apiPost<{ order_id: string }>("/api/checkout/create-order", {
+        payment_method: "online",
+        human_verified: true,
+        recaptcha_token: "",
+        contact_name: contact.name,
+        contact_email: contact.email,
+        contact_phone: contact.phone,
+        billing_name: billing.name,
+        billing_address_line1: billing.line1,
+        billing_address_line2: billing.line2,
+        billing_city: billing.city,
+        billing_state: billing.state,
+        billing_pin: billing.pin,
+        billing_phone: billing.phone,
+        shipping_name: shipping.name,
+        shipping_address_line1: shipping.line1,
+        shipping_address_line2: shipping.line2,
+        shipping_city: shipping.city,
+        shipping_state: shipping.state,
+        shipping_pin: shipping.pin,
+        shipping_phone: shipping.phone,
+        business_name: business.name.trim(),
+        business_type: business.type,
+        gst_number: normalizeGst(business.gst ?? ""),
+        items: normalizedItems.map((item) => ({
+          product_id: item.product_id,
+          quantity: item.quantity,
+          packaging_mode: item.packaging_mode,
+          closure_name: item.closure_name,
+          closure_price: item.closure_price,
+        })),
+      });
+      const orderId = orderResponse.order_id;
 
       if (!orderId) {
         throw new Error("Unable to create order.");
       }
 
-      if (paymentMethod === "online") {
-        const init = await apiPost<RazorpayInit>("/api/checkout/razorpay/init", {
-          order_id: orderId,
-        });
-
-        const scriptLoaded = await loadRazorpayScript();
-        if (!scriptLoaded || !window.Razorpay) {
-          throw new Error("Razorpay script failed to load.");
-        }
-
-        const razorpay = new window.Razorpay({
-          key: init.key_id,
-          amount: init.amount,
-          currency: init.currency,
-          name: "Clearpiece",
-          description: "Order Payment",
-          order_id: init.razorpay_order_id,
-          handler: async (response: any) => {
-            try {
-              await apiPost("/api/checkout/razorpay/verify", {
-                order_id: init.order_id,
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-              });
-              setPendingOrderId(null);
-              if (typeof window !== "undefined") {
-                window.sessionStorage.removeItem(CHECKOUT_DRAFT_KEY);
-              }
-              clearCart();
-              router.push(`/order-confirmation/${init.order_id}`);
-            } catch (err) {
-              setError(err instanceof Error ? err.message : "Payment verification failed.");
-            }
-          },
-          theme: { color: "#0f2d5e" },
-        });
-
-        razorpay.open();
-      } else if (paymentMethod === "bank_transfer") {
-        clearCart();
-        setPendingOrderId(null);
-        if (typeof window !== "undefined") {
-          window.sessionStorage.removeItem(CHECKOUT_DRAFT_KEY);
-        }
-        if (orderId) {
-          setBankTransferOrderId(orderId);
-        }
-      } else {
-        clearCart();
-        setPendingOrderId(null);
-        if (typeof window !== "undefined") {
-          window.sessionStorage.removeItem(CHECKOUT_DRAFT_KEY);
-        }
-        if (orderId) {
-          router.push(`/order-confirmation/${orderId}`);
-        }
+      clearCart();
+      if (typeof window !== "undefined") {
+        window.sessionStorage.removeItem(CHECKOUT_DRAFT_KEY);
       }
+      router.push(`/order-confirmation/${orderId}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to place order.");
+      const message = err instanceof Error ? err.message : "Unable to place order.";
+      if (redirectToCartForStockIssue(message)) return;
+      setError(message);
     } finally {
       setSubmitting(false);
     }
@@ -741,6 +626,10 @@ export function CheckoutContent() {
       )}. Add more items to proceed.`
     : !isFormValid
       ? `Please check: ${missingFields.join(", ")}.`
+      : !humanVerified
+        ? "Please confirm 'I am not a robot' to continue."
+        : !acceptPolicies
+          ? "Please accept Terms & Conditions and Privacy Policy to continue."
       : "";
 
   return (
@@ -791,7 +680,7 @@ export function CheckoutContent() {
               <option value="">Select saved address</option>
               {addresses.map((address) => (
                 <option key={address.id} value={address.id}>
-                  {address.label} — {address.city}
+                  {address.label} - {address.city}
                 </option>
               ))}
             </select>
@@ -1015,45 +904,47 @@ export function CheckoutContent() {
           <span className="muted">GST @ 18%</span>
           <span>{formatCurrency(totals?.gst_amount ?? computedGst)}</span>
         </div>
+        {sampleCreditAdjustment > 0 ? (
+          <div className="summary-row">
+            <span className="muted">
+              Sample Fee Adjustment
+              {totals?.sample_credit_source_request ? ` (${totals.sample_credit_source_request})` : ""}
+            </span>
+            <span>-{formatCurrency(sampleCreditAdjustment)}</span>
+          </div>
+        ) : null}
         <div className="summary-row summary-total">
           <span>Grand Total</span>
-          <span>{formatCurrency(totals?.grand_total ?? computedGrandTotal)}</span>
+          <span>{formatCurrency(adjustedGrandTotal)}</span>
         </div>
         <Link href="/cart" className="btn" style={{ marginTop: "0.6rem" }}>
           Edit Cart
         </Link>
 
-        <h3 style={{ marginTop: "1.2rem" }}>Payment Method</h3>
-        <div className="payment-group" style={{ marginTop: "0.6rem" }}>
-          {paymentMethods
-            .filter((method) => (method.value === "cod" ? codAvailable : true))
-            .map((method) => (
-              <label key={method.value} className="payment-option">
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value={method.value}
-                  checked={paymentMethod === method.value}
-                  onChange={() => setPaymentMethod(method.value)}
-                />
-                <div>
-                  <strong>{method.label}</strong>
-                  <p className="muted">{method.description}</p>
-                </div>
-              </label>
-            ))}
+        <h3 style={{ marginTop: "1.2rem" }}>Payment</h3>
+        <div className="card" style={{ marginTop: "0.6rem" }}>
+          <p className="muted">
+            Payment options will be available after order confirmation. Our team usually confirms within 1 working day.
+          </p>
         </div>
-
-        {paymentMethod === "bank_transfer" ? (
-          <div className="card" style={{ marginTop: "0.8rem" }}>
-            <h4>Bank Transfer Details</h4>
-            <p className="muted">Use these details after placing your order.</p>
-            <p>Account Name: {bankDetails.accountName}</p>
-            <p>Account Number: {bankDetails.accountNumber}</p>
-            <p>Bank: {bankDetails.bankName}</p>
-            <p>IFSC: {bankDetails.ifsc}</p>
-          </div>
-        ) : null}
+        <label className="toggle-item" style={{ justifyContent: "flex-start", gap: "0.75rem", marginTop: "0.8rem" }}>
+          <span>I am not a robot</span>
+          <span>
+            <input type="checkbox" checked={humanVerified} onChange={(event) => setHumanVerified(event.target.checked)} />
+            <span className="toggle-slider" />
+          </span>
+        </label>
+        <label className="contact-policy-consent" style={{ marginTop: "0.75rem" }}>
+          <input
+            type="checkbox"
+            checked={acceptPolicies}
+            onChange={(event) => setAcceptPolicies(event.target.checked)}
+          />
+          <span>
+            I have read and agree to the <Link href="/terms-and-conditions">Terms & Conditions</Link> and{" "}
+            <Link href="/privacy-policy">Privacy Policy</Link>.
+          </span>
+        </label>
 
         {disableReason ? (
           <p className="form-error" style={{ marginTop: "0.8rem" }}>
@@ -1071,7 +962,7 @@ export function CheckoutContent() {
           type="button"
           className="btn btn-primary"
           style={{ marginTop: "1rem" }}
-          disabled={!isFormValid || !meetsMinimum || submitting || loadingTotals}
+          disabled={!isFormValid || !meetsMinimum || !humanVerified || !acceptPolicies || submitting || loadingTotals}
           onClick={handlePlaceOrder}
         >
           {submitting ? "Placing Order..." : "Place Order"}
@@ -1080,3 +971,4 @@ export function CheckoutContent() {
     </div>
   );
 }
+

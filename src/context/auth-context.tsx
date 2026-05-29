@@ -7,6 +7,7 @@ type AuthResult = {
   ok: boolean;
   error?: string;
   pendingVerification?: boolean;
+  requiresPhoneVerification?: boolean;
 };
 
 type AuthContextValue = {
@@ -20,6 +21,7 @@ type AuthContextValue = {
     confirmPassword: string,
   ) => Promise<AuthResult>;
   login: (email: string, password: string) => Promise<AuthResult>;
+  googleLogin: (credential: string) => Promise<AuthResult>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<void>;
 };
@@ -27,8 +29,26 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 async function parseUserResponse(response: Response) {
-  const payload = (await response.json()) as { user?: SessionUser; error?: string };
-  return payload;
+  const contentType = response.headers.get("content-type") ?? "";
+
+  if (contentType.includes("application/json")) {
+    try {
+      return (await response.json()) as {
+        user?: SessionUser;
+        error?: string;
+        requires_phone_verification?: boolean;
+      };
+    } catch {
+      return { error: "Received invalid JSON response." };
+    }
+  }
+
+  try {
+    const text = await response.text();
+    return { error: text.slice(0, 200) || "Unexpected server response." };
+  } catch {
+    return { error: "Unable to read server response." };
+  }
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -113,6 +133,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { ok: true };
   }
 
+  async function googleLogin(credential: string): Promise<AuthResult> {
+    const response = await fetch("/api/auth/google", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ credential }),
+    });
+    const payload = await parseUserResponse(response);
+    if (!response.ok || !payload.user) {
+      return { ok: false, error: payload.error ?? "Google login failed." };
+    }
+    setUser(payload.user);
+    setStatus("authenticated");
+    return {
+      ok: true,
+      requiresPhoneVerification: Boolean(payload.requires_phone_verification),
+    };
+  }
+
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
     setUser(null);
@@ -124,6 +162,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     status,
     register,
     login,
+    googleLogin,
     logout,
     refreshSession,
   };
